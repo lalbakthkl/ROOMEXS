@@ -183,6 +183,17 @@ export default function App() {
 
   // Auth Listener
   useEffect(() => {
+    let unsubProfile: (() => void) | null = null;
+    let unsubReg: (() => void) | null = null;
+
+    // Safety timeout for auth readiness
+    const timeout = setTimeout(() => {
+      if (!isAuthReady) {
+        console.warn("Auth check timed out, forcing ready state");
+        setIsAuthReady(true);
+      }
+    }, 6000);
+
     const unsub = onAuthStateChanged(auth, async (u) => {
       setUser(u);
       if (u) {
@@ -190,9 +201,10 @@ export default function App() {
         if (isDefaultAdmin) {
           setIsAdmin(true);
           setIsApproved(true);
+          setIsAuthReady(true);
         } else {
           // Check user profile for approval and admin status
-          const unsubProfile = onSnapshot(doc(db, 'users', u.uid), (docSnap) => {
+          unsubProfile = onSnapshot(doc(db, 'users', u.uid), (docSnap) => {
             if (docSnap.exists()) {
               const data = docSnap.data();
               setIsAdmin(data.role === 'admin');
@@ -201,30 +213,37 @@ export default function App() {
               setIsAdmin(false);
               setIsApproved(false);
             }
+            setIsAuthReady(true);
+          }, (err) => {
+            console.error("Profile snapshot error:", err);
+            setIsAuthReady(true);
           });
           
           // Check for pending registration
-          const unsubReg = onSnapshot(doc(db, 'registrations', u.uid), (regSnap) => {
+          unsubReg = onSnapshot(doc(db, 'registrations', u.uid), (regSnap) => {
             if (regSnap.exists()) {
               setPendingReg({ id: regSnap.id, ...regSnap.data() });
             } else {
               setPendingReg(null);
             }
+          }, (err) => {
+            console.error("Registration snapshot error:", err);
           });
-
-          return () => {
-            unsubProfile();
-            unsubReg();
-          };
         }
       } else {
         setIsAdmin(false);
         setIsApproved(false);
         setPendingReg(null);
+        setIsAuthReady(true);
       }
-      setIsAuthReady(true);
     });
-    return () => unsub();
+
+    return () => {
+      unsub();
+      if (unsubProfile) unsubProfile();
+      if (unsubReg) unsubReg();
+      clearTimeout(timeout);
+    };
   }, []);
 
   // Firestore Data Listeners
@@ -589,49 +608,47 @@ export default function App() {
 
   if (!isAuthReady) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="min-h-screen bg-black flex flex-col items-center justify-center gap-4">
         <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
+        <p className="text-slate-500 text-xs font-medium animate-pulse">Initializing Secure Session...</p>
       </div>
     );
   }
 
-  if (!user) {
-    return <LoginScreen />;
-  }
-
-  if (!isApproved) {
-    return <VerificationScreen email={user.email || ''} pendingReg={pendingReg} />;
-  }
-
   return (
     <ErrorBoundary>
-      <div className="min-h-screen bg-black text-slate-100 font-sans pb-24">
-        {/* Header */}
-        <header className="bg-black/80 backdrop-blur-xl border-b border-slate-800 sticky top-0 z-30 px-4 sm:px-6 py-4 sm:py-5">
-          <div className="max-w-6xl mx-auto flex items-center justify-between">
-            <div className="flex items-center gap-3 sm:gap-4">
-              <div className="w-9 h-9 sm:w-11 h-11 bg-indigo-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-900/40">
-                <Calculator className="w-5 h-5 sm:w-6 h-6 text-white" />
+      {!user ? (
+        <LoginScreen />
+      ) : !isApproved ? (
+        <VerificationScreen email={user.email || ''} pendingReg={pendingReg} />
+      ) : (
+        <div className="min-h-screen bg-black text-slate-100 font-sans pb-24">
+          {/* Header */}
+          <header className="bg-black/80 backdrop-blur-xl border-b border-slate-800 sticky top-0 z-30 px-4 sm:px-6 py-4 sm:py-5">
+            <div className="max-w-6xl mx-auto flex items-center justify-between">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="w-9 h-9 sm:w-11 h-11 bg-indigo-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-900/40">
+                  <Calculator className="w-5 h-5 sm:w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-xl sm:text-2xl font-display font-black tracking-tight leading-none text-white">ROOMEX</h1>
+                  <span className="text-[8px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Dashboard</span>
+                </div>
               </div>
-              <div>
-                <h1 className="text-xl sm:text-2xl font-display font-black tracking-tight leading-none text-white">ROOMEX</h1>
-                <span className="text-[8px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Dashboard</span>
+              <div className="flex items-center gap-3 sm:gap-5">
+                <div className="hidden sm:block text-right">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Logged in as</p>
+                  <p className="text-sm font-bold text-white">{user.email}</p>
+                </div>
+                <button 
+                  onClick={logOut}
+                  className="p-2 sm:p-2.5 bg-slate-800 text-slate-400 rounded-lg sm:rounded-xl hover:bg-red-950/30 hover:text-red-500 transition-all border border-slate-700"
+                >
+                  <LogOut className="w-4 h-4 sm:w-5 h-5" />
+                </button>
               </div>
             </div>
-            <div className="flex items-center gap-3 sm:gap-5">
-              <div className="hidden sm:block text-right">
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Logged in as</p>
-                <p className="text-sm font-bold text-white">{user.email}</p>
-              </div>
-              <button 
-                onClick={logOut}
-                className="p-2 sm:p-2.5 bg-slate-800 text-slate-400 rounded-lg sm:rounded-xl hover:bg-red-950/30 hover:text-red-500 transition-all border border-slate-700"
-              >
-                <LogOut className="w-4 h-4 sm:w-5 h-5" />
-              </button>
-            </div>
-          </div>
-        </header>
+          </header>
 
         <main className="max-w-6xl mx-auto p-4 sm:p-6 space-y-6 sm:space-y-8">
           {/* Quick Stats */}
@@ -1005,6 +1022,7 @@ export default function App() {
           </div>
         </div>
       </div>
+    )}
     </ErrorBoundary>
   );
 }

@@ -12,13 +12,13 @@
         // Global error handlers to help debug preview issues
         window.addEventListener('error', function(event) {
           const errorDisplay = document.createElement('div');
-          errorDisplay.style.cssText = 'position:fixed;top:0;left:0;width:100%;background:red;color:white;padding:20px;z-index:99999;font-family:monospace;white-space:pre-wrap;';
+          errorDisplay.style.cssText = 'position:fixed;top:0;left:0;width:100%;background:red;color:white;padding:20px;z-index:99999;font-family:monospace;white-space:pre-wrap;font-size:12px;';
           errorDisplay.textContent = 'Runtime Error: ' + event.message + '\nAt: ' + event.filename + ':' + event.lineno + ':' + event.colno;
           document.body.appendChild(errorDisplay);
         });
         window.addEventListener('unhandledrejection', function(event) {
           const errorDisplay = document.createElement('div');
-          errorDisplay.style.cssText = 'position:fixed;top:0;left:0;width:100%;background:orange;color:white;padding:20px;z-index:99999;font-family:monospace;white-space:pre-wrap;';
+          errorDisplay.style.cssText = 'position:fixed;top:0;left:0;width:100%;background:orange;color:white;padding:20px;z-index:99999;font-family:monospace;white-space:pre-wrap;font-size:12px;';
           errorDisplay.textContent = 'Unhandled Promise Rejection: ' + event.reason;
           document.body.appendChild(errorDisplay);
         });
@@ -35,9 +35,18 @@
             enumerable: true
           });
           window.global = window;
+          window.globalThis = window;
         } catch (e) {
           console.warn('Could not make window.fetch writable:', e);
         }
+
+        // iOS Safari specific: Ensure the viewport height is correct
+        const setVH = () => {
+          let vh = window.innerHeight * 0.01;
+          document.documentElement.style.setProperty('--vh', `${vh}px`);
+        };
+        window.addEventListener('resize', setVH);
+        setVH();
       })();
     </script>
     <script type="module" src="/src/main.tsx"></script>
