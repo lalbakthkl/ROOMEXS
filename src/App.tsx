@@ -395,6 +395,16 @@ export default function App() {
     }
   };
 
+  const rejectUser = async (userId: string) => {
+    try {
+      if (confirm('Are you sure you want to reject this registration request?')) {
+        await deleteDoc(doc(db, 'registrations', userId));
+      }
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, 'registrations');
+    }
+  };
+
   const saveSummary = async () => {
     if (!user) return;
     const month = format(new Date(), 'MMMM yyyy');
@@ -853,13 +863,22 @@ export default function App() {
                           <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Awaiting Approval</p>
                         </div>
                       </div>
-                      <button 
-                        onClick={() => approveUser(reg.id, reg.email)}
-                        className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-900/20"
-                      >
-                        <CheckCircle2 className="w-5 h-5" />
-                        Approve
-                      </button>
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => approveUser(reg.id, reg.email)}
+                          className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-900/20"
+                        >
+                          <CheckCircle2 className="w-5 h-5" />
+                          Approve
+                        </button>
+                        <button 
+                          onClick={() => rejectUser(reg.id)}
+                          className="flex items-center gap-2 px-6 py-3 bg-red-500/10 text-red-500 rounded-2xl font-bold hover:bg-red-500/20 transition-all border border-red-500/20"
+                        >
+                          <X className="w-5 h-5" />
+                          Reject
+                        </button>
+                      </div>
                     </div>
                   ))}
                   {registrations.length === 0 && (
