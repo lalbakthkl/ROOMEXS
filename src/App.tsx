@@ -553,52 +553,52 @@ export default function App() {
     <ErrorBoundary>
       <div className="min-h-screen bg-black text-slate-100 font-sans pb-24">
         {/* Header */}
-        <header className="bg-black/80 backdrop-blur-xl border-b border-slate-800 sticky top-0 z-30 px-6 py-5">
+        <header className="bg-black/80 backdrop-blur-xl border-b border-slate-800 sticky top-0 z-30 px-4 sm:px-6 py-4 sm:py-5">
           <div className="max-w-6xl mx-auto flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-11 h-11 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-900/40">
-                <Calculator className="w-6 h-6 text-white" />
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="w-9 h-9 sm:w-11 h-11 bg-indigo-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-900/40">
+                <Calculator className="w-5 h-5 sm:w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-display font-black tracking-tight leading-none text-white">ROOMEX</h1>
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Dashboard</span>
+                <h1 className="text-xl sm:text-2xl font-display font-black tracking-tight leading-none text-white">ROOMEX</h1>
+                <span className="text-[8px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Dashboard</span>
               </div>
             </div>
-            <div className="flex items-center gap-5">
-              <div className="hidden md:block text-right">
+            <div className="flex items-center gap-3 sm:gap-5">
+              <div className="hidden sm:block text-right">
                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Logged in as</p>
                 <p className="text-sm font-bold text-white">{user.email}</p>
               </div>
               <button 
                 onClick={logOut}
-                className="p-2.5 bg-slate-800 text-slate-400 rounded-xl hover:bg-red-950/30 hover:text-red-500 transition-all border border-slate-700"
+                className="p-2 sm:p-2.5 bg-slate-800 text-slate-400 rounded-lg sm:rounded-xl hover:bg-red-950/30 hover:text-red-500 transition-all border border-slate-700"
               >
-                <LogOut className="w-5 h-5" />
+                <LogOut className="w-4 h-4 sm:w-5 h-5" />
               </button>
             </div>
           </div>
         </header>
 
-        <main className="max-w-6xl mx-auto p-6 space-y-8">
+        <main className="max-w-6xl mx-auto p-4 sm:p-6 space-y-6 sm:space-y-8">
           {/* Quick Stats */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
-            <StatCard label="Total Purchase" value={`AED ${calculations.totalPurchase.toLocaleString()}`} color="bg-emerald-600" icon={<ShoppingBag className="w-5 h-5 text-white" />} />
-            <StatCard label="Per Day Rate" value={`AED ${calculations.perDayRate.toFixed(2)}`} color="bg-indigo-600" icon={<Calculator className="w-5 h-5 text-white" />} />
-            <StatCard label="Total Days" value={`${calculations.totalDays}`} color="bg-amber-600" icon={<Users className="w-5 h-5 text-white" />} />
-            <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 shadow-xl shadow-black/20 flex flex-col justify-between group hover:border-indigo-500/50 transition-colors">
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Room Rent</span>
-                <div className="p-2 rounded-xl bg-slate-800 text-slate-500 group-hover:bg-indigo-950/30 group-hover:text-indigo-400 transition-colors">
-                  <Home className="w-4 h-4" />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
+            <StatCard label="Total Purchase" value={`AED ${calculations.totalPurchase.toLocaleString()}`} color="bg-emerald-600" icon={<ShoppingBag className="w-4 h-4 sm:w-5 h-5 text-white" />} />
+            <StatCard label="Per Day Rate" value={`AED ${calculations.perDayRate.toFixed(2)}`} color="bg-indigo-600" icon={<Calculator className="w-4 h-4 sm:w-5 h-5 text-white" />} />
+            <StatCard label="Total Days" value={`${calculations.totalDays}`} color="bg-amber-600" icon={<Users className="w-4 h-4 sm:w-5 h-5 text-white" />} />
+            <div className="bg-slate-900 p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-800 shadow-xl shadow-black/20 flex flex-col justify-between group hover:border-indigo-500/50 transition-colors">
+              <div className="flex items-center justify-between mb-3 sm:mb-4">
+                <span className="text-[8px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Room Rent</span>
+                <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-slate-800 text-slate-500 group-hover:bg-indigo-950/30 group-hover:text-indigo-400 transition-colors">
+                  <Home className="w-3.5 h-3.5 sm:w-4 h-4" />
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-slate-500 font-bold text-xl">AED</span>
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <span className="text-slate-500 font-bold text-lg sm:text-xl">AED</span>
                 <input 
                   type="number" 
                   value={totalRoomRent || ''} 
                   onChange={(e) => updateRoomRent(Number(e.target.value))}
-                  className="w-full font-display font-black text-3xl focus:outline-none bg-transparent placeholder-slate-700 text-white"
+                  className="w-full font-display font-black text-2xl sm:text-3xl focus:outline-none bg-transparent placeholder-slate-700 text-white"
                   placeholder="0"
                 />
               </div>
@@ -648,8 +648,9 @@ export default function App() {
                 className="space-y-6"
               >
                 <AddPurchaseForm members={members} onAdd={addPurchase} />
-                <div className="bg-slate-900 rounded-4xl border border-slate-800 shadow-xl shadow-black/20 overflow-hidden">
-                  <div className="overflow-x-auto">
+                <div className="bg-slate-900 rounded-2xl sm:rounded-4xl border border-slate-800 shadow-xl shadow-black/20 overflow-hidden">
+                  {/* Desktop Table */}
+                  <div className="hidden sm:block overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="bg-slate-800/50 border-b border-slate-800">
@@ -689,19 +690,49 @@ export default function App() {
                             </td>
                           </tr>
                         ))}
-                        {purchases.length === 0 && (
-                          <tr>
-                            <td colSpan={4} className="px-8 py-20 text-center">
-                              <div className="flex flex-col items-center gap-3 opacity-20">
-                                <ShoppingBag className="w-12 h-12" />
-                                <p className="font-bold uppercase tracking-widest text-xs">No purchases recorded</p>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
                       </tbody>
                     </table>
                   </div>
+
+                  {/* Mobile List */}
+                  <div className="sm:hidden divide-y divide-slate-800">
+                    {purchases.map((p) => (
+                      <div key={p.id} className="p-4 flex items-center justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-white truncate">{p.description}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">
+                              {members.find(m => m.id === p.memberId)?.name || 'Unknown'}
+                            </span>
+                            <span className="text-slate-700">•</span>
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                              {format(new Date(p.date), 'MMM dd')}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-right flex items-center gap-3">
+                          <span className="font-display font-black text-indigo-400">AED {p.amount}</span>
+                          {isAdmin && (
+                            <button 
+                              onClick={() => deletePurchase(p.id)} 
+                              className="w-8 h-8 flex items-center justify-center text-slate-600 hover:text-red-500 bg-slate-800 rounded-lg"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {purchases.length === 0 && (
+                    <div className="px-8 py-20 text-center">
+                      <div className="flex flex-col items-center gap-3 opacity-20">
+                        <ShoppingBag className="w-12 h-12" />
+                        <p className="font-bold uppercase tracking-widest text-xs">No purchases recorded</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )}
@@ -894,21 +925,21 @@ export default function App() {
         </main>
 
         {/* Action Buttons at the bottom */}
-        <div className="max-w-6xl mx-auto px-6 pb-20">
-          <div className="flex flex-col sm:flex-row gap-4 justify-center bg-slate-900/50 p-6 rounded-[2.5rem] border border-slate-800/50 backdrop-blur-sm">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 pb-20">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center bg-slate-900/50 p-4 sm:p-6 rounded-3xl sm:rounded-[2.5rem] border border-slate-800/50 backdrop-blur-sm">
             <button 
               onClick={exportPDF}
-              className="flex items-center justify-center gap-3 bg-slate-800 text-slate-300 px-8 py-4 rounded-2xl font-bold hover:bg-slate-700 transition-all active:scale-95 border border-slate-700"
+              className="flex items-center justify-center gap-3 bg-slate-800 text-slate-300 px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl sm:rounded-2xl font-bold hover:bg-slate-700 transition-all active:scale-95 border border-slate-700 text-sm sm:text-base"
             >
-              <Download className="w-5 h-5" />
-              Download PDF Report
+              <Download className="w-4 h-4 sm:w-5 h-5" />
+              Download PDF
             </button>
             <button 
               onClick={sharePDF}
-              className="flex items-center justify-center gap-3 bg-indigo-600 text-white px-10 py-4 rounded-2xl font-bold hover:bg-indigo-700 transition-all active:scale-95 shadow-xl shadow-indigo-900/20"
+              className="flex items-center justify-center gap-3 bg-indigo-600 text-white px-8 sm:px-10 py-3.5 sm:py-4 rounded-xl sm:rounded-2xl font-bold hover:bg-indigo-700 transition-all active:scale-95 shadow-xl shadow-indigo-900/20 text-sm sm:text-base"
             >
-              <Share2 className="w-5 h-5" />
-              Share Report via WhatsApp
+              <Share2 className="w-4 h-4 sm:w-5 h-5" />
+              Share via WhatsApp
             </button>
           </div>
         </div>
@@ -920,12 +951,12 @@ export default function App() {
 // Sub-components
 function StatCard({ label, value, color, icon }: { label: string, value: string, color: string, icon: React.ReactNode }) {
   return (
-    <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 shadow-xl shadow-black/20 flex flex-col justify-between group hover:shadow-2xl hover:border-slate-700 transition-all">
-      <div className="flex items-center justify-between mb-4">
-        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">{label}</span>
-        <div className={cn("p-2 rounded-xl shadow-lg", color)}>{icon}</div>
+    <div className="bg-slate-900 p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-800 shadow-xl shadow-black/20 flex flex-col justify-between group hover:shadow-2xl hover:border-slate-700 transition-all">
+      <div className="flex items-center justify-between mb-3 sm:mb-4">
+        <span className="text-[8px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">{label}</span>
+        <div className={cn("p-1.5 sm:p-2 rounded-lg sm:rounded-xl shadow-lg", color)}>{icon}</div>
       </div>
-      <span className="text-3xl font-display font-black tracking-tight text-white">{value}</span>
+      <span className="text-xl sm:text-3xl font-display font-black tracking-tight text-white">{value}</span>
     </div>
   );
 }
@@ -952,53 +983,53 @@ const AddMemberForm: React.FC<{ onAdd: (name: string, rent: boolean, mess: boole
   const [days, setDays] = useState(30);
 
   return (
-    <div className="bg-slate-900 p-8 rounded-4xl border border-slate-800 shadow-xl shadow-black/20">
-      <h3 className="font-display font-bold text-white mb-6 flex items-center gap-3">
-        <div className="w-8 h-8 bg-indigo-950/30 rounded-xl flex items-center justify-center">
+    <div className="bg-slate-900 p-5 sm:p-8 rounded-2xl sm:rounded-4xl border border-slate-800 shadow-xl shadow-black/20">
+      <h3 className="font-display font-bold text-white mb-5 sm:mb-6 flex items-center gap-3">
+        <div className="w-7 h-7 sm:w-8 h-8 bg-indigo-950/30 rounded-lg sm:rounded-xl flex items-center justify-center">
           <Plus className="w-4 h-4 text-indigo-500" />
         </div>
         Add New Member
       </h3>
-      <div className="grid sm:grid-cols-4 gap-5">
+      <div className="grid sm:grid-cols-4 gap-4 sm:gap-5">
         <div className="space-y-1.5">
-          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Full Name</label>
+          <label className="text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Full Name</label>
           <input 
             type="text" 
             placeholder="e.g. Rahul Sharma" 
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-5 py-3.5 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none transition-all text-white placeholder-slate-600"
+            className="w-full bg-slate-800 border border-slate-700 rounded-xl sm:rounded-2xl px-4 sm:px-5 py-3 sm:py-3.5 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none transition-all text-white placeholder-slate-600 text-sm"
           />
         </div>
-        <div className="flex flex-col gap-3">
-          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Settings</label>
+        <div className="flex flex-col gap-2 sm:gap-3">
+          <label className="text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Settings</label>
           <div className="flex gap-2">
-            <div className="flex-1 flex items-center justify-between bg-slate-800 border border-slate-700 rounded-2xl px-4 py-2.5">
-              <span className="text-xs font-bold text-slate-400">Rent</span>
+            <div className="flex-1 flex items-center justify-between bg-slate-800 border border-slate-700 rounded-xl sm:rounded-2xl px-3 sm:px-4 py-2 sm:py-2.5">
+              <span className="text-[10px] sm:text-xs font-bold text-slate-400">Rent</span>
               <button 
                 onClick={() => setRent(!rent)}
                 className={cn(
-                  "w-9 h-5 rounded-full transition-colors relative",
+                  "w-8 h-4 sm:w-9 h-5 rounded-full transition-colors relative",
                   rent ? "bg-indigo-600" : "bg-slate-700"
                 )}
               >
                 <div className={cn(
-                  "absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all",
+                  "absolute top-0.5 w-3 h-3 sm:w-4 h-4 bg-white rounded-full transition-all",
                   rent ? "right-0.5" : "left-0.5"
                 )} />
               </button>
             </div>
-            <div className="flex-1 flex items-center justify-between bg-slate-800 border border-slate-700 rounded-2xl px-4 py-2.5">
-              <span className="text-xs font-bold text-slate-400">Mess</span>
+            <div className="flex-1 flex items-center justify-between bg-slate-800 border border-slate-700 rounded-xl sm:rounded-2xl px-3 sm:px-4 py-2 sm:py-2.5">
+              <span className="text-[10px] sm:text-xs font-bold text-slate-400">Mess</span>
               <button 
                 onClick={() => setMess(!mess)}
                 className={cn(
-                  "w-9 h-5 rounded-full transition-colors relative",
+                  "w-8 h-4 sm:w-9 h-5 rounded-full transition-colors relative",
                   mess ? "bg-emerald-600" : "bg-slate-700"
                 )}
               >
                 <div className={cn(
-                  "absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all",
+                  "absolute top-0.5 w-3 h-3 sm:w-4 h-4 bg-white rounded-full transition-all",
                   mess ? "right-0.5" : "left-0.5"
                 )} />
               </button>
@@ -1006,13 +1037,13 @@ const AddMemberForm: React.FC<{ onAdd: (name: string, rent: boolean, mess: boole
           </div>
         </div>
         <div className="space-y-1.5">
-          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Days in Mess</label>
+          <label className="text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Days in Mess</label>
           <input 
             type="number" 
             placeholder="30" 
             value={days}
             onChange={(e) => setDays(Number(e.target.value))}
-            className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-5 py-3.5 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none transition-all text-white placeholder-slate-600"
+            className="w-full bg-slate-800 border border-slate-700 rounded-xl sm:rounded-2xl px-4 sm:px-5 py-3 sm:py-3.5 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none transition-all text-white placeholder-slate-600 text-sm"
           />
         </div>
         <div className="flex items-end">
@@ -1023,9 +1054,9 @@ const AddMemberForm: React.FC<{ onAdd: (name: string, rent: boolean, mess: boole
                 setName('');
               }
             }}
-            className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold hover:bg-indigo-700 transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-indigo-900/20"
+            className="w-full bg-indigo-600 text-white py-3 sm:py-4 rounded-xl sm:rounded-2xl font-bold hover:bg-indigo-700 transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-indigo-900/20 text-sm"
           >
-            <Plus className="w-5 h-5" />
+            <Plus className="w-4 h-4 sm:w-5 h-5" />
             Add Member
           </button>
         </div>
@@ -1050,21 +1081,21 @@ const MemberCard: React.FC<{
   };
 
   return (
-    <div className="bg-slate-900 p-6 rounded-4xl border border-slate-800 shadow-xl shadow-black/20 flex flex-col sm:flex-row sm:items-center justify-between gap-6 group hover:border-indigo-500/30 transition-all">
-      <div className="flex items-center gap-5">
-        <div className="w-16 h-16 bg-slate-800 rounded-3xl flex items-center justify-center text-slate-500 font-display font-black text-2xl uppercase border border-slate-700 group-hover:bg-indigo-950/30 group-hover:text-indigo-400 transition-colors">
+    <div className="bg-slate-900 p-4 sm:p-6 rounded-2xl sm:rounded-4xl border border-slate-800 shadow-xl shadow-black/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-6 group hover:border-indigo-500/30 transition-all">
+      <div className="flex items-center gap-4 sm:gap-5">
+        <div className="w-12 h-12 sm:w-16 h-16 bg-slate-800 rounded-2xl sm:rounded-3xl flex items-center justify-center text-slate-500 font-display font-black text-xl sm:text-2xl uppercase border border-slate-700 group-hover:bg-indigo-950/30 group-hover:text-indigo-400 transition-colors">
           {member.name[0]}
         </div>
-        <div>
-          <h4 className="font-display font-bold text-xl text-white mb-1.5">{member.name}</h4>
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="min-w-0">
+          <h4 className="font-display font-bold text-lg sm:text-xl text-white mb-1 sm:mb-1.5 truncate">{member.name}</h4>
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             {isEditing && isAdmin ? (
               <div className="flex items-center gap-2 bg-slate-800 p-1 rounded-lg border border-slate-700">
                 <input 
                   type="number" 
                   value={editedDays}
                   onChange={(e) => setEditedDays(Number(e.target.value))}
-                  className="w-12 bg-transparent text-[10px] font-bold text-white focus:outline-none px-1"
+                  className="w-10 bg-transparent text-[10px] font-bold text-white focus:outline-none px-1"
                   autoFocus
                 />
                 <button onClick={handleSave} className="text-emerald-400 hover:text-emerald-500">
@@ -1078,7 +1109,7 @@ const MemberCard: React.FC<{
               <span 
                 onClick={() => isAdmin && setIsEditing(true)}
                 className={cn(
-                  "text-[10px] font-bold bg-slate-800 text-slate-400 px-2.5 py-1 rounded-lg uppercase tracking-widest flex items-center gap-1.5 transition-colors",
+                  "text-[9px] sm:text-[10px] font-bold bg-slate-800 text-slate-400 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg uppercase tracking-widest flex items-center gap-1.5 transition-colors",
                   isAdmin ? "cursor-pointer hover:bg-slate-700" : "cursor-default"
                 )}
               >
@@ -1087,12 +1118,12 @@ const MemberCard: React.FC<{
               </span>
             )}
             {member.roomRentEnabled && (
-              <span className="text-[10px] font-bold bg-indigo-950/30 text-indigo-400 px-2.5 py-1 rounded-lg uppercase tracking-widest border border-indigo-900/30">
+              <span className="text-[9px] sm:text-[10px] font-bold bg-indigo-950/30 text-indigo-400 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg uppercase tracking-widest border border-indigo-900/30">
                 Rent
               </span>
             )}
             {member.messBillEnabled && (
-              <span className="text-[10px] font-bold bg-emerald-950/30 text-emerald-400 px-2.5 py-1 rounded-lg uppercase tracking-widest border border-emerald-900/30">
+              <span className="text-[9px] sm:text-[10px] font-bold bg-emerald-950/30 text-emerald-400 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg uppercase tracking-widest border border-emerald-900/30">
                 Mess
               </span>
             )}
@@ -1100,41 +1131,41 @@ const MemberCard: React.FC<{
         </div>
       </div>
       
-      <div className="flex items-center justify-between sm:justify-end gap-8">
-        <div className="text-right">
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-1">Payable</p>
+      <div className="flex items-center justify-between sm:justify-end gap-6 sm:gap-8">
+        <div className="text-left sm:text-right">
+          <p className="text-[8px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-0.5 sm:mb-1">Payable</p>
           <p className={cn(
-            "text-3xl font-display font-black tracking-tight",
+            "text-2xl sm:text-3xl font-display font-black tracking-tight",
             member.balance < 0 ? "text-emerald-400" : "text-indigo-500"
           )}>
             AED {member.balance.toFixed(0)}
-            <span className="text-sm font-bold ml-0.5 opacity-60">.{member.balance.toFixed(2).split('.')[1]}</span>
+            <span className="text-xs sm:text-sm font-bold ml-0.5 opacity-60">.{member.balance.toFixed(2).split('.')[1]}</span>
           </p>
         </div>
         {isAdmin && (
           <div className="flex items-center gap-2">
             {confirmDelete ? (
-              <div className="flex items-center gap-2 bg-red-950/30 p-2 rounded-2xl border border-red-900/20 animate-in fade-in slide-in-from-right-2">
-                <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest px-2">Sure?</span>
+              <div className="flex items-center gap-1.5 sm:gap-2 bg-red-950/30 p-1.5 sm:p-2 rounded-xl sm:rounded-2xl border border-red-900/20 animate-in fade-in slide-in-from-right-2">
+                <span className="text-[8px] sm:text-[10px] font-bold text-red-400 uppercase tracking-widest px-1 sm:px-2">Sure?</span>
                 <button 
                   onClick={() => onDelete(member.id)}
-                  className="p-2 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-colors"
+                  className="p-1.5 sm:p-2 bg-red-500 text-white rounded-lg sm:rounded-xl hover:bg-red-600 transition-colors"
                 >
-                  <Check className="w-4 h-4" />
+                  <Check className="w-3.5 h-3.5 sm:w-4 h-4" />
                 </button>
                 <button 
                   onClick={() => setConfirmDelete(false)}
-                  className="p-2 bg-slate-800 text-slate-400 rounded-xl hover:bg-slate-700 transition-colors"
+                  className="p-1.5 sm:p-2 bg-slate-800 text-slate-400 rounded-lg sm:rounded-xl hover:bg-slate-700 transition-colors"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-3.5 h-3.5 sm:w-4 h-4" />
                 </button>
               </div>
             ) : (
               <button 
                 onClick={() => setConfirmDelete(true)}
-                className="w-12 h-12 flex items-center justify-center text-slate-600 hover:text-red-500 hover:bg-red-950/30 rounded-2xl transition-all border border-transparent hover:border-red-900/30"
+                className="w-10 h-10 sm:w-12 h-12 flex items-center justify-center text-slate-600 hover:text-red-500 hover:bg-red-950/30 rounded-xl sm:rounded-2xl transition-all border border-transparent hover:border-red-900/30"
               >
-                <Trash2 className="w-5 h-5" />
+                <Trash2 className="w-4 h-4 sm:w-5 h-5" />
               </button>
             )}
           </div>
