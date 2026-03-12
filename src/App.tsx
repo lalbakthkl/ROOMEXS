@@ -507,6 +507,60 @@ export default function App() {
     doc.save(filename);
   };
 
+  const downloadSummaryPDF = (s: Summary) => {
+    const doc = new jsPDF();
+    const memberDetails = JSON.parse(s.memberDetails);
+    
+    // Header
+    doc.setFontSize(22);
+    doc.setTextColor(41, 128, 185);
+    doc.text('ROOMEX - Expense Report', 105, 20, { align: 'center' });
+    
+    doc.setFontSize(14);
+    doc.setTextColor(100);
+    doc.text(`Period: ${s.month}`, 105, 30, { align: 'center' });
+
+    // Summary Section
+    doc.setFontSize(12);
+    doc.setTextColor(0);
+    doc.text('General Summary', 14, 45);
+    autoTable(doc, {
+      startY: 50,
+      head: [['Metric', 'Value']],
+      body: [
+        ['Total Room Rent', `AED ${s.totalRoomRent.toFixed(2)}`],
+        ['Total Purchase', `AED ${s.totalPurchase.toFixed(2)}`],
+        ['Total Mess Days', `${s.totalDays} days`],
+        ['Per Day Rate', `AED ${s.perDayRate.toFixed(2)}`],
+      ],
+      theme: 'striped',
+      headStyles: { fillColor: [41, 128, 185] }
+    });
+
+    // Member Details Section
+    doc.text('Member Breakdown', 14, (doc as any).lastAutoTable.finalY + 15);
+    autoTable(doc, {
+      startY: (doc as any).lastAutoTable.finalY + 20,
+      head: [['Name', 'Days', 'Purchase', 'Mess Bill', 'Rent', 'Total', 'Payable']],
+      body: memberDetails.map((m: any) => [
+        m.name,
+        m.totalDays,
+        `AED ${m.memberPurchases.toFixed(2)}`,
+        `AED ${m.messBill.toFixed(2)}`,
+        `AED ${m.roomRent.toFixed(2)}`,
+        `AED ${m.totalBill.toFixed(2)}`,
+        { 
+          content: `AED ${m.balance.toFixed(2)}`, 
+          styles: { textColor: m.balance < 0 ? [0, 150, 0] : [0, 0, 255] } 
+        }
+      ]),
+      theme: 'grid',
+      headStyles: { fillColor: [39, 174, 96] }
+    });
+
+    doc.save(`ROOMEX_Report_${s.month.replace(' ', '_')}.pdf`);
+  };
+
   const sharePDF = async () => {
     const { doc, filename, month } = generatePDF();
     const pdfBlob = doc.output('blob');
@@ -831,17 +885,24 @@ export default function App() {
                           </div>
                         </div>
                       </div>
-                      <div className="flex gap-3">
+                      <div className="flex flex-wrap gap-2">
                         <button 
                           onClick={() => {
                             const details = JSON.parse(s.memberDetails);
                             console.table(details);
                             alert('Check console for detailed table view (feature coming soon to UI)');
                           }}
-                          className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-slate-800 text-slate-300 rounded-2xl font-bold hover:bg-slate-700 transition-all border border-slate-700"
+                          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 text-slate-300 rounded-xl font-bold hover:bg-slate-700 transition-all border border-slate-700 text-xs"
                         >
-                          <ChevronRight className="w-5 h-5" />
+                          <ChevronRight className="w-4 h-4" />
                           Details
+                        </button>
+                        <button 
+                          onClick={() => downloadSummaryPDF(s)}
+                          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600/10 text-indigo-400 rounded-xl font-bold hover:bg-indigo-600/20 transition-all border border-indigo-500/20 text-xs"
+                        >
+                          <Download className="w-4 h-4" />
+                          PDF
                         </button>
                         <button 
                           onClick={async () => {
@@ -850,11 +911,11 @@ export default function App() {
                             }
                           }}
                           className={cn(
-                            "w-12 h-12 flex items-center justify-center bg-red-950/30 text-red-500 rounded-2xl hover:bg-red-900/50 transition-all border border-red-900/20",
+                            "w-10 h-10 flex items-center justify-center bg-red-950/30 text-red-500 rounded-xl hover:bg-red-900/50 transition-all border border-red-900/20",
                             !isAdmin && "opacity-0 pointer-events-none"
                           )}
                         >
-                          <Trash2 className="w-5 h-5" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
