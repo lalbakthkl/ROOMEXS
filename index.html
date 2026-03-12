@@ -8,9 +8,37 @@
   <body>
     <div id="root"></div>
     <script>
-      if (typeof global === 'undefined') {
-        window.global = window;
-      }
+      (function() {
+        // Global error handlers to help debug preview issues
+        window.addEventListener('error', function(event) {
+          const errorDisplay = document.createElement('div');
+          errorDisplay.style.cssText = 'position:fixed;top:0;left:0;width:100%;background:red;color:white;padding:20px;z-index:99999;font-family:monospace;white-space:pre-wrap;';
+          errorDisplay.textContent = 'Runtime Error: ' + event.message + '\nAt: ' + event.filename + ':' + event.lineno + ':' + event.colno;
+          document.body.appendChild(errorDisplay);
+        });
+        window.addEventListener('unhandledrejection', function(event) {
+          const errorDisplay = document.createElement('div');
+          errorDisplay.style.cssText = 'position:fixed;top:0;left:0;width:100%;background:orange;color:white;padding:20px;z-index:99999;font-family:monospace;white-space:pre-wrap;';
+          errorDisplay.textContent = 'Unhandled Promise Rejection: ' + event.reason;
+          document.body.appendChild(errorDisplay);
+        });
+
+        // Some libraries try to overwrite fetch on the global object.
+        // In modern browsers, window.fetch is often a read-only getter.
+        // We make it writable to avoid "TypeError: Cannot set property fetch of #<Window> which has only a getter"
+        try {
+          const originalFetch = window.fetch;
+          Object.defineProperty(window, 'fetch', {
+            value: originalFetch,
+            writable: true,
+            configurable: true,
+            enumerable: true
+          });
+          window.global = window;
+        } catch (e) {
+          console.warn('Could not make window.fetch writable:', e);
+        }
+      })();
     </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
