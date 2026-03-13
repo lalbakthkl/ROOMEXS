@@ -408,6 +408,12 @@ export default function App() {
     }
   };
 
+  const shareCleaningBadge = (memberName: string) => {
+    const message = `✨ *CLEANING BADGE* ✨\n\n🏆 Congratulations to *${memberName}*!\n🧹 Cleaning task completed successfully.\n🏠 Keeping our home clean and fresh!\n\n📅 Date: ${format(new Date(), 'MMMM dd, yyyy')}\n\n#CleaningDuty #HomeCare`;
+    const encodedMessage = encodeURIComponent(message);
+    window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
+  };
+
   const completeCleaning = async () => {
     if (!cleaningQueue || cleaningQueue.memberIds.length === 0) return;
     const currentMemberId = cleaningQueue.memberIds[0];
@@ -429,6 +435,13 @@ export default function App() {
         memberIds: newQueue,
         lastRotationDate: new Date().toISOString()
       });
+
+      // Share badge
+      if (member) {
+        if (confirm(`Cleaning completed by ${member.name}! Share badge to WhatsApp?`)) {
+          shareCleaningBadge(member.name);
+        }
+      }
     } catch (err) {
       console.error("Error completing cleaning:", err);
     }
@@ -853,7 +866,7 @@ export default function App() {
           </div>
 
           {/* Tabs */}
-          <div className="flex bg-slate-900/50 p-1.5 rounded-2xl border border-slate-800 max-w-2xl mx-auto backdrop-blur-sm">
+          <div className="flex bg-slate-900/50 p-2 rounded-3xl border border-slate-800 max-w-3xl mx-auto backdrop-blur-sm">
             <TabButton active={activeTab === 'members'} onClick={() => setActiveTab('members')} icon={<Users className="w-4 h-4" />} label="Members" />
             <TabButton active={activeTab === 'purchases'} onClick={() => setActiveTab('purchases')} icon={<ShoppingBag className="w-4 h-4" />} label="Purchases" />
             <TabButton 
@@ -1233,21 +1246,13 @@ export default function App() {
                         <div className="bg-slate-900 p-8 rounded-4xl border border-slate-800 shadow-xl">
                           <div className="flex items-center justify-between mb-6">
                             <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em]">Manage Rotation</h3>
-                            <div className="flex gap-2">
-                              <button 
-                                onClick={() => {
-                                  const memberId = prompt('Enter member ID to add to queue:');
-                                  if (memberId) addToQueue(memberId);
-                                }}
-                                className="p-2 bg-slate-800 text-slate-400 rounded-lg hover:text-white transition-colors"
-                                title="Add Member to Queue"
-                              >
-                                <UserPlus className="w-4 h-4" />
-                              </button>
+                            <div className="flex items-center gap-2">
+                              <ShieldCheck className="w-4 h-4 text-amber-500" />
+                              <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest">Admin Mode</span>
                             </div>
                           </div>
                           
-                          <div className="space-y-2">
+                          <div className="space-y-2 mb-8">
                             {cleaningQueue.memberIds.map((id, idx) => (
                               <div key={`${id}-${idx}`} className="flex items-center justify-between p-3 bg-slate-800/20 rounded-xl border border-slate-800/50 group">
                                 <div className="flex items-center gap-3">
@@ -1281,12 +1286,34 @@ export default function App() {
                             ))}
                           </div>
 
-                          <div className="grid grid-cols-2 gap-3 mt-6">
+                          {/* Add Member Section */}
+                          <div className="pt-6 border-t border-slate-800">
+                            <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em] mb-4">Add to Queue</h4>
+                            <div className="flex flex-wrap gap-2">
+                              {members
+                                .filter(m => !cleaningQueue.memberIds.includes(m.id))
+                                .map(m => (
+                                  <button
+                                    key={m.id}
+                                    onClick={() => addToQueue(m.id)}
+                                    className="flex items-center gap-2 px-3 py-2 bg-slate-800/50 hover:bg-indigo-600/20 text-slate-400 hover:text-indigo-400 rounded-xl border border-slate-700/50 hover:border-indigo-500/30 transition-all text-xs font-bold"
+                                  >
+                                    <Plus className="w-3 h-3" />
+                                    {m.name}
+                                  </button>
+                                ))}
+                              {members.filter(m => !cleaningQueue.memberIds.includes(m.id)).length === 0 && (
+                                <p className="text-[10px] text-slate-600 italic">All members are in the queue</p>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3 mt-8">
                             <button 
                               onClick={setupCleaningQueue}
                               className="py-3 bg-slate-800 text-slate-300 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-slate-700 transition-colors"
                             >
-                              Sync Members
+                              Sync All Members
                             </button>
                             <button 
                               onClick={resetCleaningQueue}
@@ -1415,13 +1442,13 @@ function TabButton({ active, onClick, icon, label, activeClassName }: { active: 
     <button 
       onClick={onClick}
       className={cn(
-        "flex-1 flex items-center justify-center gap-2.5 py-3 rounded-xl font-bold text-sm transition-all duration-300",
+        "flex-1 flex items-center justify-center gap-3 py-4 rounded-2xl font-bold text-base transition-all duration-300",
         active 
           ? (activeClassName || "bg-slate-800 text-indigo-400 shadow-lg shadow-black/20") 
           : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/30"
       )}
     >
-      {icon}
+      <div className="scale-110">{icon}</div>
       <span className="hidden sm:inline">{label}</span>
     </button>
   );
