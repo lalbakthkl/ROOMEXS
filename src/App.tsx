@@ -31,6 +31,10 @@ import {
   Edit2,
   Delete,
   Brush,
+  ArrowUp,
+  ArrowDown,
+  UserPlus,
+  UserMinus,
   Clock,
   RotateCcw
 } from 'lucide-react';
@@ -58,7 +62,6 @@ import { twMerge } from 'tailwind-merge';
 import { 
   Mail, 
   Lock, 
-  UserPlus, 
   ArrowLeft,
   Eye,
   EyeOff,
@@ -462,6 +465,42 @@ export default function App() {
     await setupCleaningQueue();
   };
 
+  const moveQueueItem = async (index: number, direction: 'up' | 'down') => {
+    if (!isAdmin || !cleaningQueue) return;
+    const newQueue = [...cleaningQueue.memberIds];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= newQueue.length) return;
+    
+    [newQueue[index], newQueue[targetIndex]] = [newQueue[targetIndex], newQueue[index]];
+    
+    try {
+      await updateDoc(doc(db, 'cleaning', 'queue'), { memberIds: newQueue });
+    } catch (err) {
+      console.error("Error moving queue item:", err);
+    }
+  };
+
+  const removeFromQueue = async (memberId: string) => {
+    if (!isAdmin || !cleaningQueue) return;
+    try {
+      const newQueue = cleaningQueue.memberIds.filter(id => id !== memberId);
+      await updateDoc(doc(db, 'cleaning', 'queue'), { memberIds: newQueue });
+    } catch (err) {
+      console.error("Error removing from queue:", err);
+    }
+  };
+
+  const addToQueue = async (memberId: string) => {
+    if (!isAdmin || !cleaningQueue) return;
+    if (cleaningQueue.memberIds.includes(memberId)) return;
+    try {
+      const newQueue = [...cleaningQueue.memberIds, memberId];
+      await updateDoc(doc(db, 'cleaning', 'queue'), { memberIds: newQueue });
+    } catch (err) {
+      console.error("Error adding to queue:", err);
+    }
+  };
+
   // Actions
   const addMember = async (name: string, roomRentEnabled: boolean, messBillEnabled: boolean, totalDays: number) => {
     if (!user) return;
@@ -817,7 +856,20 @@ export default function App() {
           <div className="flex bg-slate-900/50 p-1.5 rounded-2xl border border-slate-800 max-w-2xl mx-auto backdrop-blur-sm">
             <TabButton active={activeTab === 'members'} onClick={() => setActiveTab('members')} icon={<Users className="w-4 h-4" />} label="Members" />
             <TabButton active={activeTab === 'purchases'} onClick={() => setActiveTab('purchases')} icon={<ShoppingBag className="w-4 h-4" />} label="Purchases" />
-            <TabButton active={activeTab === 'cleaning'} onClick={() => setActiveTab('cleaning')} icon={<Brush className="w-4 h-4" />} label="Cleaning" />
+            <TabButton 
+              active={activeTab === 'cleaning'} 
+              onClick={() => setActiveTab('cleaning')} 
+              icon={
+                <div className="relative">
+                  <Sparkles className="w-4 h-4" />
+                  {cleaningQueue && cleaningQueue.memberIds.length > 0 && (
+                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-amber-500 rounded-full border border-slate-900" />
+                  )}
+                </div>
+              } 
+              label="Cleaning" 
+              activeClassName="bg-amber-500/10 text-amber-500 shadow-lg shadow-amber-900/20"
+            />
             <TabButton active={activeTab === 'calculator'} onClick={() => setActiveTab('calculator')} icon={<Calculator className="w-4 h-4" />} label="Calculator" />
             <TabButton active={activeTab === 'history'} onClick={() => setActiveTab('history')} icon={<History className="w-4 h-4" />} label="History" />
             {isAdmin && <TabButton active={activeTab === 'approvals'} onClick={() => setActiveTab('approvals')} icon={<ShieldCheck className="w-4 h-4" />} label="Approvals" />}
@@ -1114,8 +1166,8 @@ export default function App() {
               >
                 {!cleaningQueue ? (
                   <div className="bg-slate-900 p-12 rounded-4xl border border-slate-800 text-center space-y-6">
-                    <div className="w-20 h-20 bg-indigo-600/10 rounded-3xl flex items-center justify-center mx-auto text-indigo-500">
-                      <Brush className="w-10 h-10" />
+                    <div className="w-20 h-20 bg-amber-500/10 rounded-3xl flex items-center justify-center mx-auto text-amber-500">
+                      <Sparkles className="w-10 h-10" />
                     </div>
                     <div className="space-y-2">
                       <h2 className="text-2xl font-display font-black text-white">Cleaning Schedule</h2>
@@ -1135,10 +1187,10 @@ export default function App() {
                     {/* Current Rotation */}
                     <div className="space-y-6">
                       <div className="bg-slate-900 p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600/5 blur-3xl rounded-full -translate-y-1/2 translate-x-1/2" />
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 blur-3xl rounded-full -translate-y-1/2 translate-x-1/2" />
                         <div className="flex items-center justify-between mb-8">
                           <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em]">This Friday's Cleaner</h3>
-                          <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 text-emerald-500 rounded-full text-[10px] font-bold uppercase tracking-widest border border-emerald-500/20">
+                          <div className="flex items-center gap-2 px-3 py-1 bg-amber-500/10 text-amber-500 rounded-full text-[10px] font-bold uppercase tracking-widest border border-amber-500/20">
                             <Calendar className="w-3 h-3" />
                             Upcoming
                           </div>
@@ -1146,7 +1198,7 @@ export default function App() {
                         
                         {cleaningQueue.memberIds.length > 0 ? (
                           <div className="flex flex-col items-center text-center py-4">
-                            <div className="w-24 h-24 bg-indigo-600 rounded-[2rem] flex items-center justify-center text-white font-black text-4xl mb-6 shadow-2xl shadow-indigo-900/40">
+                            <div className="w-24 h-24 bg-amber-500 rounded-[2rem] flex items-center justify-center text-white font-black text-4xl mb-6 shadow-2xl shadow-amber-900/40">
                               {(members.find(m => m.id === cleaningQueue.memberIds[0])?.name || '?')[0]}
                             </div>
                             <h4 className="text-3xl font-display font-black text-white mb-2">
@@ -1176,37 +1228,100 @@ export default function App() {
                         )}
                       </div>
 
-                      {/* Next in Line */}
-                      <div className="bg-slate-900 p-8 rounded-4xl border border-slate-800 shadow-xl">
-                        <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em] mb-6">Upcoming Rotation</h3>
-                        <div className="space-y-3">
-                          {cleaningQueue.memberIds.slice(1, 4).map((id, idx) => (
-                            <div key={id} className="flex items-center justify-between p-4 bg-slate-800/30 rounded-2xl border border-slate-800/50">
-                              <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 bg-slate-800 rounded-lg flex items-center justify-center text-slate-500 font-bold text-xs">
-                                  {idx + 1}
-                                </div>
-                                <span className="text-slate-300 font-bold">{members.find(m => m.id === id)?.name || 'Unknown'}</span>
-                              </div>
-                              <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">
-                                Week {idx + 2}
-                              </span>
+                      {/* Rotation Management (Admin Only) */}
+                      {isAdmin && (
+                        <div className="bg-slate-900 p-8 rounded-4xl border border-slate-800 shadow-xl">
+                          <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em]">Manage Rotation</h3>
+                            <div className="flex gap-2">
+                              <button 
+                                onClick={() => {
+                                  const memberId = prompt('Enter member ID to add to queue:');
+                                  if (memberId) addToQueue(memberId);
+                                }}
+                                className="p-2 bg-slate-800 text-slate-400 rounded-lg hover:text-white transition-colors"
+                                title="Add Member to Queue"
+                              >
+                                <UserPlus className="w-4 h-4" />
+                              </button>
                             </div>
-                          ))}
-                          {cleaningQueue.memberIds.length <= 1 && (
-                            <p className="text-slate-600 text-xs text-center py-4 italic">No more members in queue</p>
-                          )}
+                          </div>
+                          
+                          <div className="space-y-2">
+                            {cleaningQueue.memberIds.map((id, idx) => (
+                              <div key={`${id}-${idx}`} className="flex items-center justify-between p-3 bg-slate-800/20 rounded-xl border border-slate-800/50 group">
+                                <div className="flex items-center gap-3">
+                                  <span className="text-[10px] font-bold text-slate-600 w-4">{idx + 1}</span>
+                                  <span className="text-slate-300 text-sm font-medium">{members.find(m => m.id === id)?.name || 'Unknown'}</span>
+                                  {idx === 0 && <span className="px-2 py-0.5 bg-amber-500/10 text-amber-500 text-[8px] font-bold uppercase rounded-full border border-amber-500/20">Next</span>}
+                                </div>
+                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button 
+                                    onClick={() => moveQueueItem(idx, 'up')}
+                                    disabled={idx === 0}
+                                    className="p-1.5 text-slate-500 hover:text-white disabled:opacity-20"
+                                  >
+                                    <ArrowUp className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button 
+                                    onClick={() => moveQueueItem(idx, 'down')}
+                                    disabled={idx === cleaningQueue.memberIds.length - 1}
+                                    className="p-1.5 text-slate-500 hover:text-white disabled:opacity-20"
+                                  >
+                                    <ArrowDown className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button 
+                                    onClick={() => removeFromQueue(id)}
+                                    className="p-1.5 text-slate-500 hover:text-red-400"
+                                  >
+                                    <UserMinus className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3 mt-6">
+                            <button 
+                              onClick={setupCleaningQueue}
+                              className="py-3 bg-slate-800 text-slate-300 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-slate-700 transition-colors"
+                            >
+                              Sync Members
+                            </button>
+                            <button 
+                              onClick={resetCleaningQueue}
+                              className="py-3 bg-red-500/10 text-red-500 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-red-500/20 transition-colors"
+                            >
+                              Reset All
+                            </button>
+                          </div>
                         </div>
-                        {isAdmin && (
-                          <button 
-                            onClick={resetCleaningQueue}
-                            className="w-full mt-6 py-3 text-slate-500 hover:text-red-400 text-[10px] font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
-                          >
-                            <RotateCcw className="w-3 h-3" />
-                            Reset Rotation
-                          </button>
-                        )}
-                      </div>
+                      )}
+
+                      {/* Next in Line (Public View) */}
+                      {!isAdmin && (
+                        <div className="bg-slate-900 p-8 rounded-4xl border border-slate-800 shadow-xl">
+                          <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em] mb-6">Upcoming Rotation</h3>
+                          <div className="space-y-3">
+                            {cleaningQueue.memberIds.slice(1, 4).map((id, idx) => (
+                              <div key={id} className="flex items-center justify-between p-4 bg-slate-800/30 rounded-2xl border border-slate-800/50">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 bg-slate-800 rounded-lg flex items-center justify-center text-slate-500 font-bold text-xs">
+                                    {idx + 1}
+                                  </div>
+                                  <span className="text-slate-300 font-bold">{members.find(m => m.id === id)?.name || 'Unknown'}</span>
+                                </div>
+                                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">
+                                  Week {idx + 2}
+                                </span>
+                              </div>
+                            ))}
+                            {cleaningQueue.memberIds.length <= 1 && (
+                              <p className="text-slate-600 text-xs text-center py-4 italic">No more members in queue</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* History */}
@@ -1295,13 +1410,15 @@ function StatCard({ label, value, color, icon }: { label: string, value: string,
   );
 }
 
-function TabButton({ active, onClick, icon, label }: { active: boolean, onClick: () => void, icon: React.ReactNode, label: string }) {
+function TabButton({ active, onClick, icon, label, activeClassName }: { active: boolean, onClick: () => void, icon: React.ReactNode, label: string, activeClassName?: string }) {
   return (
     <button 
       onClick={onClick}
       className={cn(
         "flex-1 flex items-center justify-center gap-2.5 py-3 rounded-xl font-bold text-sm transition-all duration-300",
-        active ? "bg-slate-800 text-indigo-400 shadow-lg shadow-black/20" : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/30"
+        active 
+          ? (activeClassName || "bg-slate-800 text-indigo-400 shadow-lg shadow-black/20") 
+          : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/30"
       )}
     >
       {icon}

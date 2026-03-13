@@ -62,6 +62,30 @@
         "createdAt": { "type": "string", "format": "date-time", "description": "When the registration was requested" }
       },
       "required": ["email", "createdAt"]
+    },
+    "CleaningQueue": {
+      "title": "Cleaning Queue",
+      "description": "The current rotation queue for cleaning.",
+      "type": "object",
+      "properties": {
+        "memberIds": { "type": "array", "items": { "type": "string" }, "description": "List of member IDs in rotation order" },
+        "lastRotationDate": { "type": "string", "format": "date-time", "description": "When the last rotation occurred" },
+        "uid": { "type": "string", "description": "The UID of the user who created this queue" }
+      },
+      "required": ["memberIds", "uid"]
+    },
+    "CleaningHistory": {
+      "title": "Cleaning History",
+      "description": "History of cleaning events.",
+      "type": "object",
+      "properties": {
+        "memberId": { "type": "string", "description": "ID of the member who cleaned or skipped" },
+        "memberName": { "type": "string", "description": "Name of the member" },
+        "date": { "type": "string", "format": "date-time", "description": "When the event occurred" },
+        "status": { "type": "string", "enum": ["completed", "skipped"], "description": "Status of the cleaning event" },
+        "uid": { "type": "string", "description": "The UID of the user who created this history record" }
+      },
+      "required": ["memberId", "memberName", "date", "status", "uid"]
     }
   },
   "firestore": {
@@ -84,6 +108,14 @@
     "/registrations/{regId}": {
       "schema": "Registration",
       "description": "Collection of pending registrations"
+    },
+    "/cleaning/queue": {
+      "schema": "CleaningQueue",
+      "description": "The singleton cleaning queue document"
+    },
+    "/cleaning_history/{historyId}": {
+      "schema": "CleaningHistory",
+      "description": "Collection of cleaning history records"
     }
   }
 }

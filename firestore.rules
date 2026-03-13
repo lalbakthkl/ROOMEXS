@@ -32,6 +32,20 @@ service cloud.firestore {
     //   - memberDetails: string (required, JSON)
     //   - uid: string (required, immutable)
     //
+    // Collection: cleaning/queue
+    // Fields:
+    //   - memberIds: list (required)
+    //   - lastRotationDate: string (optional)
+    //   - uid: string (required, immutable)
+    //
+    // Collection: cleaning_history
+    // Fields:
+    //   - memberId: string (required)
+    //   - memberName: string (required)
+    //   - date: string (required)
+    //   - status: string (required, enum: completed, skipped)
+    //   - uid: string (required, immutable)
+    //
     // ===============================================================
 
     // ===============================================================
@@ -92,6 +106,18 @@ service cloud.firestore {
              data.memberDetails is string;
     }
 
+    function isValidCleaningQueue(data) {
+      return data.memberIds is list &&
+             (data.memberIds.size() == 0 || data.memberIds[0] is string);
+    }
+
+    function isValidCleaningHistory(data) {
+      return data.memberId is string &&
+             data.memberName is string &&
+             data.date is string &&
+             data.status in ['completed', 'skipped'];
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -130,6 +156,19 @@ service cloud.firestore {
     match /registrations/{regId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
+      allow update, delete: if isAdmin();
+    }
+
+    match /cleaning/queue {
+      allow read: if isAuthenticated();
+      allow create: if isAdmin() && isValidCleaningQueue(request.resource.data) && uidUnchanged();
+      allow update: if isAuthenticated() && isValidCleaningQueue(request.resource.data) && uidNotModified();
+      allow delete: if isAdmin();
+    }
+
+    match /cleaning_history/{historyId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidCleaningHistory(request.resource.data) && uidUnchanged();
       allow update, delete: if isAdmin();
     }
   }
