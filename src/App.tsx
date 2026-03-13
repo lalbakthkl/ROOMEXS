@@ -36,7 +36,9 @@ import {
   UserPlus,
   UserMinus,
   Clock,
-  RotateCcw
+  RotateCcw,
+  Trophy,
+  Award
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -197,6 +199,7 @@ export default function App() {
   const [isApproved, setIsApproved] = useState(false);
   const [registrations, setRegistrations] = useState<any[]>([]);
   const [pendingReg, setPendingReg] = useState<any>(null);
+  const [showCleaningSuccess, setShowCleaningSuccess] = useState<{name: string} | null>(null);
   
   // Calculator State
   const [calcInput, setCalcInput] = useState('');
@@ -436,11 +439,9 @@ export default function App() {
         lastRotationDate: new Date().toISOString()
       });
 
-      // Share badge
+      // Show success modal
       if (member) {
-        if (confirm(`Cleaning completed by ${member.name}! Share badge to WhatsApp?`)) {
-          shareCleaningBadge(member.name);
-        }
+        setShowCleaningSuccess({ name: member.name });
       }
     } catch (err) {
       console.error("Error completing cleaning:", err);
@@ -876,17 +877,88 @@ export default function App() {
                 <div className="relative">
                   <Sparkles className="w-4 h-4" />
                   {cleaningQueue && cleaningQueue.memberIds.length > 0 && (
-                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-amber-500 rounded-full border border-slate-900" />
+                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-emerald-500 rounded-full border border-slate-900" />
                   )}
                 </div>
               } 
               label="Cleaning" 
-              activeClassName="bg-amber-500/10 text-amber-500 shadow-lg shadow-amber-900/20"
+              activeClassName="bg-emerald-500/10 text-emerald-500 shadow-lg shadow-emerald-900/20"
             />
             <TabButton active={activeTab === 'calculator'} onClick={() => setActiveTab('calculator')} icon={<Calculator className="w-4 h-4" />} label="Calculator" />
             <TabButton active={activeTab === 'history'} onClick={() => setActiveTab('history')} icon={<History className="w-4 h-4" />} label="History" />
             {isAdmin && <TabButton active={activeTab === 'approvals'} onClick={() => setActiveTab('approvals')} icon={<ShieldCheck className="w-4 h-4" />} label="Approvals" />}
           </div>
+
+          {/* Cleaning Success Modal */}
+          <AnimatePresence>
+            {showCleaningSuccess && (
+              <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setShowCleaningSuccess(null)}
+                  className="absolute inset-0 bg-black/80 backdrop-blur-md"
+                />
+                <motion.div 
+                  initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                  animate={{ scale: 1, opacity: 1, y: 0 }}
+                  exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                  className="relative bg-slate-900 w-full max-w-md rounded-[2.5rem] border border-slate-800 shadow-2xl overflow-hidden"
+                >
+                  <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-emerald-500/20 to-transparent" />
+                  
+                  <div className="p-8 pt-12 text-center relative">
+                    <div className="w-24 h-24 bg-emerald-500 rounded-[2rem] flex items-center justify-center text-white mx-auto mb-6 shadow-2xl shadow-emerald-900/40 relative">
+                      <Trophy className="w-12 h-12" />
+                      <motion.div 
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ delay: 0.3, type: 'spring' }}
+                        className="absolute -top-2 -right-2 w-10 h-10 bg-amber-500 rounded-full flex items-center justify-center border-4 border-slate-900"
+                      >
+                        <Award className="w-5 h-5 text-white" />
+                      </motion.div>
+                    </div>
+
+                    <h2 className="text-3xl font-display font-black text-white mb-2">Cleaning Hero!</h2>
+                    <p className="text-slate-400 mb-8">
+                      Congratulations to <span className="text-emerald-400 font-bold">{showCleaningSuccess.name}</span> for keeping our space sparkling clean!
+                    </p>
+
+                    <div className="bg-slate-800/50 rounded-3xl p-6 border border-slate-700/50 mb-8">
+                      <div className="flex items-center justify-center gap-2 text-emerald-500 font-bold mb-2">
+                        <CheckCircle2 className="w-5 h-5" />
+                        <span>Task Completed</span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
+                        {format(new Date(), 'MMMM dd, yyyy')}
+                      </p>
+                    </div>
+
+                    <div className="space-y-3">
+                      <button 
+                        onClick={() => {
+                          shareCleaningBadge(showCleaningSuccess.name);
+                          setShowCleaningSuccess(null);
+                        }}
+                        className="w-full bg-emerald-500 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-emerald-600 transition-all active:scale-95 shadow-lg shadow-emerald-900/20"
+                      >
+                        <Share2 className="w-5 h-5" />
+                        Share Badge to WhatsApp
+                      </button>
+                      <button 
+                        onClick={() => setShowCleaningSuccess(null)}
+                        className="w-full bg-slate-800 text-slate-400 py-4 rounded-2xl font-bold hover:bg-slate-700 hover:text-white transition-all"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
 
           {/* Content */}
           <AnimatePresence mode="wait">
@@ -1179,7 +1251,7 @@ export default function App() {
               >
                 {!cleaningQueue ? (
                   <div className="bg-slate-900 p-12 rounded-4xl border border-slate-800 text-center space-y-6">
-                    <div className="w-20 h-20 bg-amber-500/10 rounded-3xl flex items-center justify-center mx-auto text-amber-500">
+                    <div className="w-20 h-20 bg-emerald-500/10 rounded-3xl flex items-center justify-center mx-auto text-emerald-500">
                       <Sparkles className="w-10 h-10" />
                     </div>
                     <div className="space-y-2">
@@ -1200,10 +1272,10 @@ export default function App() {
                     {/* Current Rotation */}
                     <div className="space-y-6">
                       <div className="bg-slate-900 p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 blur-3xl rounded-full -translate-y-1/2 translate-x-1/2" />
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 blur-3xl rounded-full -translate-y-1/2 translate-x-1/2" />
                         <div className="flex items-center justify-between mb-8">
                           <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em]">This Friday's Cleaner</h3>
-                          <div className="flex items-center gap-2 px-3 py-1 bg-amber-500/10 text-amber-500 rounded-full text-[10px] font-bold uppercase tracking-widest border border-amber-500/20">
+                          <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 text-emerald-500 rounded-full text-[10px] font-bold uppercase tracking-widest border border-emerald-500/20">
                             <Calendar className="w-3 h-3" />
                             Upcoming
                           </div>
@@ -1211,7 +1283,7 @@ export default function App() {
                         
                         {cleaningQueue.memberIds.length > 0 ? (
                           <div className="flex flex-col items-center text-center py-4">
-                            <div className="w-24 h-24 bg-amber-500 rounded-[2rem] flex items-center justify-center text-white font-black text-4xl mb-6 shadow-2xl shadow-amber-900/40">
+                            <div className="w-24 h-24 bg-emerald-500 rounded-[2rem] flex items-center justify-center text-white font-black text-4xl mb-6 shadow-2xl shadow-emerald-900/40">
                               {(members.find(m => m.id === cleaningQueue.memberIds[0])?.name || '?')[0]}
                             </div>
                             <h4 className="text-3xl font-display font-black text-white mb-2">
@@ -1247,8 +1319,8 @@ export default function App() {
                           <div className="flex items-center justify-between mb-6">
                             <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em]">Manage Rotation</h3>
                             <div className="flex items-center gap-2">
-                              <ShieldCheck className="w-4 h-4 text-amber-500" />
-                              <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest">Admin Mode</span>
+                              <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                              <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Admin Mode</span>
                             </div>
                           </div>
                           
@@ -1258,9 +1330,9 @@ export default function App() {
                                 <div className="flex items-center gap-3">
                                   <span className="text-[10px] font-bold text-slate-600 w-4">{idx + 1}</span>
                                   <span className="text-slate-300 text-sm font-medium">{members.find(m => m.id === id)?.name || 'Unknown'}</span>
-                                  {idx === 0 && <span className="px-2 py-0.5 bg-amber-500/10 text-amber-500 text-[8px] font-bold uppercase rounded-full border border-amber-500/20">Next</span>}
+                                  {idx === 0 && <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-500 text-[8px] font-bold uppercase rounded-full border border-emerald-500/20">Next</span>}
                                 </div>
-                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                                   <button 
                                     onClick={() => moveQueueItem(idx, 'up')}
                                     disabled={idx === 0}
