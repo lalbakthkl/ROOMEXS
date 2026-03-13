@@ -309,7 +309,7 @@ export default function App() {
       }
     });
 
-    const unsubCleaningHistory = onSnapshot(query(collection(db, 'cleaning_history'), where('uid', '==', user?.uid || '')), (snapshot) => {
+    const unsubCleaningHistory = onSnapshot(collection(db, 'cleaning_history'), (snapshot) => {
       const history = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as CleaningHistory));
       setCleaningHistory(history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
     });
