@@ -29,7 +29,10 @@ import {
   CheckCircle2,
   ShieldCheck,
   Edit2,
-  Delete
+  Delete,
+  Brush,
+  Clock,
+  RotateCcw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -95,6 +98,20 @@ interface Summary {
   perDayRate: number;
   memberDetails: string; // JSON string
   uid: string;
+}
+
+interface CleaningQueue {
+  id: string;
+  memberIds: string[];
+  lastRotationDate: string | null;
+}
+
+interface CleaningHistory {
+  id: string;
+  memberId: string;
+  memberName: string;
+  date: string;
+  status: 'completed' | 'skipped';
 }
 
 enum OperationType {
@@ -170,7 +187,9 @@ export default function App() {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [summaries, setSummaries] = useState<Summary[]>([]);
   const [totalRoomRent, setTotalRoomRent] = useState<number>(0);
-  const [activeTab, setActiveTab] = useState<'members' | 'purchases' | 'history' | 'calculator' | 'approvals'>('members');
+  const [cleaningQueue, setCleaningQueue] = useState<CleaningQueue | null>(null);
+  const [cleaningHistory, setCleaningHistory] = useState<CleaningHistory[]>([]);
+  const [activeTab, setActiveTab] = useState<'members' | 'purchases' | 'cleaning' | 'history' | 'calculator' | 'approvals'>('members');
   const [isAdmin, setIsAdmin] = useState(false);
   const [isApproved, setIsApproved] = useState(false);
   const [registrations, setRegistrations] = useState<any[]>([]);
@@ -276,6 +295,19 @@ export default function App() {
       }
     });
 
+    const unsubCleaningQueue = onSnapshot(doc(db, 'cleaning', 'queue'), (snapshot) => {
+      if (snapshot.exists()) {
+        setCleaningQueue({ id: snapshot.id, ...snapshot.data() } as CleaningQueue);
+      } else {
+        setCleaningQueue(null);
+      }
+    });
+
+    const unsubCleaningHistory = onSnapshot(query(collection(db, 'cleaning_history'), where('uid', '==', user?.uid || '')), (snapshot) => {
+      const history = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as CleaningHistory));
+      setCleaningHistory(history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+    });
+
     let unsubRegs = () => {};
     if (isAdmin) {
       const qRegs = collection(db, 'registrations');
@@ -290,6 +322,8 @@ export default function App() {
       unsubSummaries();
       unsubSettings();
       unsubRegs();
+      unsubCleaningQueue();
+      unsubCleaningHistory();
     };
   }, [user]);
 
@@ -329,6 +363,24 @@ export default function App() {
     };
   }, [members, purchases, totalRoomRent]);
 
+  const groupedPurchases = useMemo(() => {
+    const groups: { [key: string]: { memberName: string, purchases: Purchase[], total: number } } = {};
+    
+    purchases.forEach(p => {
+      const member = members.find(m => m.id === p.memberId);
+      const memberName = member ? member.name : 'Unknown';
+      const memberId = p.memberId || 'unknown';
+      
+      if (!groups[memberId]) {
+        groups[memberId] = { memberName, purchases: [], total: 0 };
+      }
+      groups[memberId].purchases.push(p);
+      groups[memberId].total += p.amount;
+    });
+    
+    return Object.entries(groups).sort((a, b) => b[1].total - a[1].total);
+  }, [purchases, members]);
+
   const updateRoomRent = async (val: number) => {
     setTotalRoomRent(val);
     if (!isAdmin) return;
@@ -339,11 +391,82 @@ export default function App() {
     }
   };
 
+  const setupCleaningQueue = async () => {
+    if (!isAdmin) return;
+    const memberIds = members.map(m => m.id);
+    try {
+      await setDoc(doc(db, 'cleaning', 'queue'), {
+        memberIds,
+        lastRotationDate: null,
+        uid: user?.uid
+      });
+    } catch (err) {
+      console.error("Error setting up cleaning queue:", err);
+    }
+  };
+
+  const completeCleaning = async () => {
+    if (!cleaningQueue || cleaningQueue.memberIds.length === 0) return;
+    const currentMemberId = cleaningQueue.memberIds[0];
+    const member = members.find(m => m.id === currentMemberId);
+    
+    try {
+      // Add to history
+      await addDoc(collection(db, 'cleaning_history'), {
+        memberId: currentMemberId,
+        memberName: member?.name || 'Unknown',
+        date: new Date().toISOString(),
+        status: 'completed',
+        uid: user?.uid
+      });
+
+      // Rotate queue
+      const newQueue = [...cleaningQueue.memberIds.slice(1), currentMemberId];
+      await updateDoc(doc(db, 'cleaning', 'queue'), {
+        memberIds: newQueue,
+        lastRotationDate: new Date().toISOString()
+      });
+    } catch (err) {
+      console.error("Error completing cleaning:", err);
+    }
+  };
+
+  const skipCleaning = async () => {
+    if (!cleaningQueue || cleaningQueue.memberIds.length < 2) return;
+    const currentMemberId = cleaningQueue.memberIds[0];
+    const nextMemberId = cleaningQueue.memberIds[1];
+    const member = members.find(m => m.id === currentMemberId);
+
+    try {
+      // Add to history as skipped
+      await addDoc(collection(db, 'cleaning_history'), {
+        memberId: currentMemberId,
+        memberName: member?.name || 'Unknown',
+        date: new Date().toISOString(),
+        status: 'skipped',
+        uid: user?.uid
+      });
+
+      // Swap first two members (skipped person goes to next week, next person does it now)
+      const newQueue = [nextMemberId, currentMemberId, ...cleaningQueue.memberIds.slice(2)];
+      await updateDoc(doc(db, 'cleaning', 'queue'), {
+        memberIds: newQueue
+      });
+    } catch (err) {
+      console.error("Error skipping cleaning:", err);
+    }
+  };
+
+  const resetCleaningQueue = async () => {
+    if (!isAdmin || !confirm('Reset cleaning rotation?')) return;
+    await setupCleaningQueue();
+  };
+
   // Actions
   const addMember = async (name: string, roomRentEnabled: boolean, messBillEnabled: boolean, totalDays: number) => {
     if (!user) return;
     try {
-      await addDoc(collection(db, 'members'), {
+      const docRef = await addDoc(collection(db, 'members'), {
         name,
         roomRentEnabled,
         messBillEnabled,
@@ -351,6 +474,13 @@ export default function App() {
         uid: user.uid,
         createdAt: new Date().toISOString()
       });
+
+      // Add to cleaning queue if it exists
+      if (cleaningQueue) {
+        await updateDoc(doc(db, 'cleaning', 'queue'), {
+          memberIds: [...cleaningQueue.memberIds, docRef.id]
+        });
+      }
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, 'members');
     }
@@ -363,6 +493,13 @@ export default function App() {
       const relatedPurchases = purchases.filter(p => p.memberId === id);
       for (const p of relatedPurchases) {
         await deleteDoc(doc(db, 'purchases', p.id));
+      }
+
+      // Remove from cleaning queue if it exists
+      if (cleaningQueue) {
+        await updateDoc(doc(db, 'cleaning', 'queue'), {
+          memberIds: cleaningQueue.memberIds.filter(mid => mid !== id)
+        });
       }
     } catch (err) {
       handleFirestoreError(err, OperationType.DELETE, 'members');
@@ -680,6 +817,7 @@ export default function App() {
           <div className="flex bg-slate-900/50 p-1.5 rounded-2xl border border-slate-800 max-w-2xl mx-auto backdrop-blur-sm">
             <TabButton active={activeTab === 'members'} onClick={() => setActiveTab('members')} icon={<Users className="w-4 h-4" />} label="Members" />
             <TabButton active={activeTab === 'purchases'} onClick={() => setActiveTab('purchases')} icon={<ShoppingBag className="w-4 h-4" />} label="Purchases" />
+            <TabButton active={activeTab === 'cleaning'} onClick={() => setActiveTab('cleaning')} icon={<Brush className="w-4 h-4" />} label="Cleaning" />
             <TabButton active={activeTab === 'calculator'} onClick={() => setActiveTab('calculator')} icon={<Calculator className="w-4 h-4" />} label="Calculator" />
             <TabButton active={activeTab === 'history'} onClick={() => setActiveTab('history')} icon={<History className="w-4 h-4" />} label="History" />
             {isAdmin && <TabButton active={activeTab === 'approvals'} onClick={() => setActiveTab('approvals')} icon={<ShieldCheck className="w-4 h-4" />} label="Approvals" />}
@@ -719,89 +857,55 @@ export default function App() {
                 className="space-y-6"
               >
                 <AddPurchaseForm members={members} onAdd={addPurchase} />
-                <div className="bg-slate-900 rounded-2xl sm:rounded-4xl border border-slate-800 shadow-xl shadow-black/20 overflow-hidden">
-                  {/* Desktop Table */}
-                  <div className="hidden sm:block overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="bg-slate-800/50 border-b border-slate-800">
-                          <th className="px-8 py-5 text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Item Details</th>
-                          <th className="px-8 py-5 text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Buyer</th>
-                          <th className="px-8 py-5 text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] text-right">Amount</th>
-                          <th className="px-8 py-5 text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] text-right">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-800">
-                        {purchases.map((p) => (
-                          <tr key={p.id} className="hover:bg-slate-800/30 transition-colors group">
-                            <td className="px-8 py-5">
-                              <p className="font-bold text-white">{p.description}</p>
-                              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-0.5">{format(new Date(p.date), 'MMM dd, HH:mm')}</p>
-                            </td>
-                            <td className="px-8 py-5">
-                              <div className="flex items-center gap-2.5">
-                                <div className="w-7 h-7 bg-indigo-950/30 rounded-lg flex items-center justify-center text-[10px] font-black text-indigo-400 uppercase">
-                                  {(members.find(m => m.id === p.memberId)?.name || '?')[0]}
-                                </div>
-                                <span className="text-sm font-bold text-slate-300">
-                                  {members.find(m => m.id === p.memberId)?.name || 'Unknown'}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="px-8 py-5 text-right font-display font-black text-indigo-400 text-lg">AED {p.amount}</td>
-                            <td className="px-8 py-5 text-right">
-                              {isAdmin && (
-                                <button 
-                                  onClick={() => deletePurchase(p.id)} 
-                                  className="w-9 h-9 flex items-center justify-center text-slate-600 hover:text-red-500 hover:bg-red-950/30 rounded-xl transition-all opacity-0 group-hover:opacity-100"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Mobile List */}
-                  <div className="sm:hidden divide-y divide-slate-800">
-                    {purchases.map((p) => (
-                      <div key={p.id} className="p-4 flex items-center justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-bold text-white truncate">{p.description}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">
-                              {members.find(m => m.id === p.memberId)?.name || 'Unknown'}
-                            </span>
-                            <span className="text-slate-700">•</span>
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                              {format(new Date(p.date), 'MMM dd')}
-                            </span>
+                
+                <div className="space-y-6">
+                  {groupedPurchases.map(([memberId, group]) => (
+                    <div key={memberId} className="bg-slate-900 rounded-2xl sm:rounded-4xl border border-slate-800 shadow-xl shadow-black/20 overflow-hidden">
+                      <div className="bg-slate-800/50 px-6 sm:px-8 py-4 sm:py-5 flex items-center justify-between border-b border-slate-800">
+                        <div className="flex items-center gap-3 sm:gap-4">
+                          <div className="w-10 h-10 sm:w-12 h-12 bg-indigo-600 rounded-xl sm:rounded-2xl flex items-center justify-center text-white font-black text-lg">
+                            {group.memberName[0]}
+                          </div>
+                          <div>
+                            <h3 className="font-display font-bold text-white text-base sm:text-lg">{group.memberName}</h3>
+                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{group.purchases.length} Items Recorded</p>
                           </div>
                         </div>
-                        <div className="text-right flex items-center gap-3">
-                          <span className="font-display font-black text-indigo-400">AED {p.amount}</span>
-                          {isAdmin && (
-                            <button 
-                              onClick={() => deletePurchase(p.id)} 
-                              className="w-8 h-8 flex items-center justify-center text-slate-600 hover:text-red-500 bg-slate-800 rounded-lg"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
+                        <div className="text-right">
+                          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5 sm:mb-1">Total Spent</p>
+                          <p className="text-xl sm:text-2xl font-display font-black text-indigo-400">AED {group.total.toLocaleString()}</p>
                         </div>
                       </div>
-                    ))}
-                  </div>
-
-                  {purchases.length === 0 && (
-                    <div className="px-8 py-20 text-center">
-                      <div className="flex flex-col items-center gap-3 opacity-20">
-                        <ShoppingBag className="w-12 h-12" />
-                        <p className="font-bold uppercase tracking-widest text-xs">No purchases recorded</p>
+                      <div className="divide-y divide-slate-800/50">
+                        {group.purchases.map(p => (
+                          <div key={p.id} className="px-6 sm:px-8 py-4 sm:py-5 flex items-center justify-between group hover:bg-slate-800/20 transition-colors">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-bold text-slate-200 truncate text-sm sm:text-base">{p.description}</p>
+                              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-0.5">
+                                {format(new Date(p.date), 'MMM dd, yyyy • HH:mm')}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-4 sm:gap-6">
+                              <span className="font-display font-black text-indigo-400 text-base sm:text-lg">AED {p.amount}</span>
+                              {isAdmin && (
+                                <button 
+                                  onClick={() => deletePurchase(p.id)}
+                                  className="w-8 h-8 sm:w-10 h-10 flex items-center justify-center text-slate-600 hover:text-red-500 hover:bg-red-950/30 rounded-lg sm:rounded-xl transition-all"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 sm:w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
                       </div>
+                    </div>
+                  ))}
+                  
+                  {purchases.length === 0 && (
+                    <div className="bg-slate-900/50 py-24 rounded-4xl border border-dashed border-slate-800 flex flex-col items-center gap-4 opacity-30">
+                      <ShoppingBag className="w-16 h-16 text-slate-500" />
+                      <p className="font-display font-bold text-lg uppercase tracking-[0.3em] text-slate-500">No purchases yet</p>
                     </div>
                   )}
                 </div>
@@ -997,6 +1101,157 @@ export default function App() {
                     </div>
                   )}
                 </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'cleaning' && (
+              <motion.div 
+                key="cleaning"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="space-y-8"
+              >
+                {!cleaningQueue ? (
+                  <div className="bg-slate-900 p-12 rounded-4xl border border-slate-800 text-center space-y-6">
+                    <div className="w-20 h-20 bg-indigo-600/10 rounded-3xl flex items-center justify-center mx-auto text-indigo-500">
+                      <Brush className="w-10 h-10" />
+                    </div>
+                    <div className="space-y-2">
+                      <h2 className="text-2xl font-display font-black text-white">Cleaning Schedule</h2>
+                      <p className="text-slate-400 max-w-sm mx-auto">No cleaning rotation has been set up yet. Admin needs to initialize the schedule.</p>
+                    </div>
+                    {isAdmin && (
+                      <button 
+                        onClick={setupCleaningQueue}
+                        className="bg-indigo-600 text-white px-8 py-4 rounded-2xl font-bold hover:bg-indigo-700 transition-all active:scale-95 shadow-xl shadow-indigo-900/20"
+                      >
+                        Initialize Rotation
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid lg:grid-cols-2 gap-8">
+                    {/* Current Rotation */}
+                    <div className="space-y-6">
+                      <div className="bg-slate-900 p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600/5 blur-3xl rounded-full -translate-y-1/2 translate-x-1/2" />
+                        <div className="flex items-center justify-between mb-8">
+                          <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em]">This Friday's Cleaner</h3>
+                          <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 text-emerald-500 rounded-full text-[10px] font-bold uppercase tracking-widest border border-emerald-500/20">
+                            <Calendar className="w-3 h-3" />
+                            Upcoming
+                          </div>
+                        </div>
+                        
+                        {cleaningQueue.memberIds.length > 0 ? (
+                          <div className="flex flex-col items-center text-center py-4">
+                            <div className="w-24 h-24 bg-indigo-600 rounded-[2rem] flex items-center justify-center text-white font-black text-4xl mb-6 shadow-2xl shadow-indigo-900/40">
+                              {(members.find(m => m.id === cleaningQueue.memberIds[0])?.name || '?')[0]}
+                            </div>
+                            <h4 className="text-3xl font-display font-black text-white mb-2">
+                              {members.find(m => m.id === cleaningQueue.memberIds[0])?.name || 'Unknown'}
+                            </h4>
+                            <p className="text-slate-500 text-sm font-medium mb-8">Responsible for cleaning this week</p>
+                            
+                            <div className="flex gap-3 w-full">
+                              <button 
+                                onClick={completeCleaning}
+                                className="flex-1 bg-emerald-600 text-white py-4 rounded-2xl font-bold hover:bg-emerald-700 transition-all active:scale-95 shadow-lg shadow-emerald-900/20 flex items-center justify-center gap-2"
+                              >
+                                <CheckCircle2 className="w-5 h-5" />
+                                Completed
+                              </button>
+                              <button 
+                                onClick={skipCleaning}
+                                className="flex-1 bg-slate-800 text-slate-300 py-4 rounded-2xl font-bold hover:bg-slate-700 transition-all active:scale-95 border border-slate-700 flex items-center justify-center gap-2"
+                              >
+                                <RotateCcw className="w-5 h-5" />
+                                Skip Turn
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-slate-500 text-center py-12">No members in queue</p>
+                        )}
+                      </div>
+
+                      {/* Next in Line */}
+                      <div className="bg-slate-900 p-8 rounded-4xl border border-slate-800 shadow-xl">
+                        <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em] mb-6">Upcoming Rotation</h3>
+                        <div className="space-y-3">
+                          {cleaningQueue.memberIds.slice(1, 4).map((id, idx) => (
+                            <div key={id} className="flex items-center justify-between p-4 bg-slate-800/30 rounded-2xl border border-slate-800/50">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 bg-slate-800 rounded-lg flex items-center justify-center text-slate-500 font-bold text-xs">
+                                  {idx + 1}
+                                </div>
+                                <span className="text-slate-300 font-bold">{members.find(m => m.id === id)?.name || 'Unknown'}</span>
+                              </div>
+                              <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">
+                                Week {idx + 2}
+                              </span>
+                            </div>
+                          ))}
+                          {cleaningQueue.memberIds.length <= 1 && (
+                            <p className="text-slate-600 text-xs text-center py-4 italic">No more members in queue</p>
+                          )}
+                        </div>
+                        {isAdmin && (
+                          <button 
+                            onClick={resetCleaningQueue}
+                            className="w-full mt-6 py-3 text-slate-500 hover:text-red-400 text-[10px] font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                            Reset Rotation
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* History */}
+                    <div className="space-y-6">
+                      <div className="bg-slate-900 p-8 rounded-4xl border border-slate-800 shadow-xl flex flex-col h-full">
+                        <div className="flex items-center justify-between mb-8">
+                          <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em]">Last 2 Rotations</h3>
+                          <Clock className="w-4 h-4 text-slate-600" />
+                        </div>
+                        <div className="space-y-4 flex-1">
+                          {cleaningHistory.slice(0, 2).map((h) => (
+                            <div key={h.id} className="p-5 bg-slate-800/50 rounded-3xl border border-slate-800 flex items-center justify-between group">
+                              <div className="flex items-center gap-4">
+                                <div className={cn(
+                                  "w-12 h-12 rounded-2xl flex items-center justify-center",
+                                  h.status === 'completed' ? "bg-emerald-500/10 text-emerald-500" : "bg-amber-500/10 text-amber-500"
+                                )}>
+                                  {h.status === 'completed' ? <CheckCircle2 className="w-6 h-6" /> : <RotateCcw className="w-6 h-6" />}
+                                </div>
+                                <div>
+                                  <p className="text-white font-bold">{h.memberName}</p>
+                                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                                    {format(new Date(h.date), 'MMMM dd, yyyy')}
+                                  </p>
+                                </div>
+                              </div>
+                              <span className={cn(
+                                "text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full border",
+                                h.status === 'completed' ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                              )}>
+                                {h.status}
+                              </span>
+                            </div>
+                          ))}
+                          {cleaningHistory.length === 0 && (
+                            <div className="flex flex-col items-center justify-center py-20 opacity-20">
+                              <History className="w-12 h-12 mb-4" />
+                              <p className="text-xs font-bold uppercase tracking-widest">No history yet</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
