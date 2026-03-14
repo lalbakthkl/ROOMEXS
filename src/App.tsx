@@ -383,6 +383,11 @@ export default function App() {
       groups[memberId].purchases.push(p);
       groups[memberId].total += p.amount;
     });
+
+    // Sort purchases within each group by date (newest first)
+    Object.values(groups).forEach(group => {
+      group.purchases.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    });
     
     return Object.entries(groups).sort((a, b) => b[1].total - a[1].total);
   }, [purchases, members]);
