@@ -37,8 +37,11 @@ import {
   UserMinus,
   Clock,
   RotateCcw,
+  Info,
   Trophy,
-  Award
+  Award,
+  Smartphone,
+  DownloadCloud
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -200,7 +203,35 @@ export default function App() {
   const [registrations, setRegistrations] = useState<any[]>([]);
   const [pendingReg, setPendingReg] = useState<any>(null);
   const [showCleaningSuccess, setShowCleaningSuccess] = useState<{name: string} | null>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+  const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' | 'info' } | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{ message: string, onConfirm: () => void } | null>(null);
   
+  // PWA Install Logic
+  useEffect(() => {
+    const handler = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      // Only show if not already installed
+      if (!window.matchMedia('(display-mode: standalone)').matches) {
+        setShowInstallPrompt(true);
+      }
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstall = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+      setShowInstallPrompt(false);
+    }
+  };
+
   // Calculator State
   const [calcInput, setCalcInput] = useState('');
   const [calcHistory, setCalcHistory] = useState<string[]>([]);
@@ -240,7 +271,7 @@ export default function App() {
             }
             setIsAuthReady(true);
           }, (err) => {
-            console.error("Profile snapshot error:", err);
+            handleFirestoreError(err, OperationType.GET, `users/${u.uid}`);
             setIsAuthReady(true);
           });
           
@@ -252,7 +283,7 @@ export default function App() {
               setPendingReg(null);
             }
           }, (err) => {
-            console.error("Registration snapshot error:", err);
+            handleFirestoreError(err, OperationType.GET, `registrations/${u.uid}`);
           });
         }
       } else {
@@ -299,7 +330,7 @@ export default function App() {
       if (snapshot.exists()) {
         setTotalRoomRent(snapshot.data().totalRoomRent || 0);
       }
-    });
+    }, (err) => handleFirestoreError(err, OperationType.GET, 'settings/global'));
 
     const unsubCleaningQueue = onSnapshot(doc(db, 'cleaning', 'queue'), (snapshot) => {
       if (snapshot.exists()) {
@@ -307,19 +338,20 @@ export default function App() {
       } else {
         setCleaningQueue(null);
       }
-    });
+    }, (err) => handleFirestoreError(err, OperationType.GET, 'cleaning/queue'));
 
     const unsubCleaningHistory = onSnapshot(collection(db, 'cleaning_history'), (snapshot) => {
       const history = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as CleaningHistory));
-      setCleaningHistory(history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-    });
+      const sortedHistory = history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      setCleaningHistory(sortedHistory.slice(0, 10));
+    }, (err) => handleFirestoreError(err, OperationType.LIST, 'cleaning_history'));
 
     let unsubRegs = () => {};
     if (isAdmin) {
       const qRegs = collection(db, 'registrations');
       unsubRegs = onSnapshot(qRegs, (snapshot) => {
         setRegistrations(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-      });
+      }, (err) => handleFirestoreError(err, OperationType.LIST, 'registrations'));
     }
 
     return () => {
@@ -398,7 +430,7 @@ export default function App() {
     try {
       await setDoc(doc(db, 'settings', 'global'), { totalRoomRent: val }, { merge: true });
     } catch (err) {
-      console.error("Error updating room rent:", err);
+      handleFirestoreError(err, OperationType.WRITE, 'settings/global');
     }
   };
 
@@ -412,7 +444,7 @@ export default function App() {
         uid: user?.uid
       });
     } catch (err) {
-      console.error("Error setting up cleaning queue:", err);
+      handleFirestoreError(err, OperationType.WRITE, 'cleaning/queue');
     }
   };
 
@@ -451,7 +483,7 @@ export default function App() {
         setShowCleaningSuccess({ name: member.name });
       }
     } catch (err) {
-      console.error("Error completing cleaning:", err);
+      handleFirestoreError(err, OperationType.WRITE, 'cleaning_history');
     }
   };
 
@@ -477,13 +509,16 @@ export default function App() {
         memberIds: newQueue
       });
     } catch (err) {
-      console.error("Error skipping cleaning:", err);
+      handleFirestoreError(err, OperationType.WRITE, 'cleaning_history');
     }
   };
 
   const resetCleaningQueue = async () => {
-    if (!isAdmin || !confirm('Reset cleaning rotation?')) return;
-    await setupCleaningQueue();
+    if (!isAdmin) return;
+    setConfirmModal({
+      message: 'Are you sure you want to reset the cleaning rotation? This will sync all current members into a new queue.',
+      onConfirm: () => setupCleaningQueue()
+    });
   };
 
   const moveQueueItem = async (index: number, direction: 'up' | 'down') => {
@@ -497,7 +532,7 @@ export default function App() {
     try {
       await updateDoc(doc(db, 'cleaning', 'queue'), { memberIds: newQueue });
     } catch (err) {
-      console.error("Error moving queue item:", err);
+      handleFirestoreError(err, OperationType.UPDATE, 'cleaning/queue');
     }
   };
 
@@ -507,7 +542,7 @@ export default function App() {
       const newQueue = cleaningQueue.memberIds.filter(id => id !== memberId);
       await updateDoc(doc(db, 'cleaning', 'queue'), { memberIds: newQueue });
     } catch (err) {
-      console.error("Error removing from queue:", err);
+      handleFirestoreError(err, OperationType.UPDATE, 'cleaning/queue');
     }
   };
 
@@ -518,7 +553,7 @@ export default function App() {
       const newQueue = [...cleaningQueue.memberIds, memberId];
       await updateDoc(doc(db, 'cleaning', 'queue'), { memberIds: newQueue });
     } catch (err) {
-      console.error("Error adding to queue:", err);
+      handleFirestoreError(err, OperationType.UPDATE, 'cleaning/queue');
     }
   };
 
@@ -541,34 +576,42 @@ export default function App() {
           memberIds: [...cleaningQueue.memberIds, docRef.id]
         });
       }
+      setNotification({ message: 'Member added successfully!', type: 'success' });
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, 'members');
     }
   };
 
   const deleteMember = async (id: string) => {
-    try {
-      await deleteDoc(doc(db, 'members', id));
-      // Also delete related purchases
-      const relatedPurchases = purchases.filter(p => p.memberId === id);
-      for (const p of relatedPurchases) {
-        await deleteDoc(doc(db, 'purchases', p.id));
-      }
+    setConfirmModal({
+      message: 'Are you sure you want to delete this member? This will also delete their purchases and remove them from the cleaning queue.',
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(db, 'members', id));
+          // Also delete related purchases
+          const relatedPurchases = purchases.filter(p => p.memberId === id);
+          for (const p of relatedPurchases) {
+            await deleteDoc(doc(db, 'purchases', p.id));
+          }
 
-      // Remove from cleaning queue if it exists
-      if (cleaningQueue) {
-        await updateDoc(doc(db, 'cleaning', 'queue'), {
-          memberIds: cleaningQueue.memberIds.filter(mid => mid !== id)
-        });
+          // Remove from cleaning queue if it exists
+          if (cleaningQueue) {
+            await updateDoc(doc(db, 'cleaning', 'queue'), {
+              memberIds: cleaningQueue.memberIds.filter(mid => mid !== id)
+            });
+          }
+          setNotification({ message: 'Member deleted', type: 'info' });
+        } catch (err) {
+          handleFirestoreError(err, OperationType.DELETE, 'members');
+        }
       }
-    } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, 'members');
-    }
+    });
   };
 
   const updateMemberDays = async (id: string, newDays: number) => {
     try {
       await updateDoc(doc(db, 'members', id), { totalDays: newDays });
+      setNotification({ message: 'Days updated', type: 'success' });
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, 'members');
     }
@@ -584,6 +627,7 @@ export default function App() {
         memberId,
         uid: user.uid
       });
+      setNotification({ message: 'Purchase added successfully!', type: 'success' });
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, 'purchases');
     }
@@ -592,6 +636,7 @@ export default function App() {
   const deletePurchase = async (id: string) => {
     try {
       await deleteDoc(doc(db, 'purchases', id));
+      setNotification({ message: 'Purchase deleted', type: 'info' });
     } catch (err) {
       handleFirestoreError(err, OperationType.DELETE, 'purchases');
     }
@@ -606,6 +651,7 @@ export default function App() {
         createdAt: new Date().toISOString()
       });
       await deleteDoc(doc(db, 'registrations', userId));
+      setNotification({ message: 'User approved successfully!', type: 'success' });
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, 'users');
     }
@@ -613,9 +659,13 @@ export default function App() {
 
   const rejectUser = async (userId: string) => {
     try {
-      if (confirm('Are you sure you want to reject this registration request?')) {
-        await deleteDoc(doc(db, 'registrations', userId));
-      }
+      setConfirmModal({
+        message: 'Are you sure you want to reject this registration request?',
+        onConfirm: async () => {
+          await deleteDoc(doc(db, 'registrations', userId));
+          setNotification({ message: 'Registration rejected', type: 'info' });
+        }
+      });
     } catch (err) {
       handleFirestoreError(err, OperationType.DELETE, 'registrations');
     }
@@ -635,7 +685,7 @@ export default function App() {
         uid: user.uid,
         createdAt: new Date().toISOString()
       });
-      alert('Summary saved successfully!');
+      setNotification({ message: 'Summary saved successfully!', type: 'success' });
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, 'summaries');
     }
@@ -651,7 +701,7 @@ export default function App() {
         setCalcHistory(prev => [...prev, `${calcInput} = ${result}`]);
         setCalcInput(result.toString());
       } catch {
-        alert('Invalid calculation');
+        setNotification({ message: 'Invalid calculation', type: 'error' });
       }
     } else if (val === 'C') {
       setCalcInput('');
@@ -803,6 +853,14 @@ export default function App() {
     }
   };
 
+  // Auto-clear notification
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
   if (!isAuthReady) {
     return (
       <div className="min-h-screen bg-black flex flex-col items-center justify-center gap-4">
@@ -895,6 +953,50 @@ export default function App() {
             <TabButton active={activeTab === 'history'} onClick={() => setActiveTab('history')} icon={<History className="w-4 h-4" />} label="History" />
             {isAdmin && <TabButton active={activeTab === 'approvals'} onClick={() => setActiveTab('approvals')} icon={<ShieldCheck className="w-4 h-4" />} label="Approvals" />}
           </div>
+
+          {/* PWA Install Prompt */}
+          <AnimatePresence>
+            {showInstallPrompt && (
+              <motion.div 
+                initial={{ opacity: 0, y: 50 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 50 }}
+                className="fixed bottom-24 left-4 right-4 z-50 sm:left-auto sm:right-6 sm:bottom-6 sm:w-96"
+              >
+                <div className="bg-slate-900 border border-indigo-500/30 rounded-3xl p-6 shadow-2xl shadow-indigo-900/40 backdrop-blur-xl bg-slate-900/90">
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-lg shadow-indigo-900/20">
+                      <Smartphone className="w-6 h-6" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-white font-bold text-lg mb-1">Install ROOMEX</h3>
+                      <p className="text-slate-400 text-sm mb-4">Add to your home screen for a better experience and quick access.</p>
+                      <div className="flex gap-3">
+                        <button 
+                          onClick={handleInstall}
+                          className="flex-1 bg-indigo-600 text-white py-2.5 rounded-xl font-bold text-sm hover:bg-indigo-700 transition-all flex items-center justify-center gap-2"
+                        >
+                          <DownloadCloud className="w-4 h-4" />
+                          Install Now
+                        </button>
+                        <button 
+                          onClick={() => setShowInstallPrompt(false)}
+                          className="px-4 py-2.5 bg-slate-800 text-slate-400 rounded-xl font-bold text-sm hover:bg-slate-700 hover:text-white transition-all"
+                        >
+                          Later
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  {/* iOS Instructions */}
+                  <div className="mt-4 pt-4 border-t border-slate-800 sm:hidden">
+                    <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-2">iOS Users</p>
+                    <p className="text-[11px] text-slate-400">Tap <span className="text-white font-bold">Share</span> then <span className="text-white font-bold">"Add to Home Screen"</span></p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Cleaning Success Modal */}
           <AnimatePresence>
@@ -1000,7 +1102,7 @@ export default function App() {
                 exit={{ opacity: 0, y: -20 }}
                 className="space-y-6"
               >
-                <AddPurchaseForm members={members} onAdd={addPurchase} />
+                <AddPurchaseForm members={members} onAdd={addPurchase} setNotification={setNotification} />
                 
                 <div className="space-y-6">
                   {groupedPurchases.map(([memberId, group]) => (
@@ -1155,7 +1257,7 @@ export default function App() {
                           onClick={() => {
                             const details = JSON.parse(s.memberDetails);
                             console.table(details);
-                            alert('Check console for detailed table view (feature coming soon to UI)');
+                            setNotification({ message: 'Check console for detailed table view (feature coming soon to UI)', type: 'info' });
                           }}
                           className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 text-slate-300 rounded-xl font-bold hover:bg-slate-700 transition-all border border-slate-700 text-xs"
                         >
@@ -1171,8 +1273,14 @@ export default function App() {
                         </button>
                         <button 
                           onClick={async () => {
-                            if (isAdmin && confirm('Delete this summary?')) {
-                              await deleteDoc(doc(db, 'summaries', s.id));
+                            if (isAdmin) {
+                              setConfirmModal({
+                                message: 'Are you sure you want to delete this summary?',
+                                onConfirm: async () => {
+                                  await deleteDoc(doc(db, 'summaries', s.id));
+                                  setNotification({ message: 'Summary deleted', type: 'info' });
+                                }
+                              });
                             }
                           }}
                           className={cn(
@@ -1510,6 +1618,60 @@ export default function App() {
         </div>
       </div>
     )}
+      {/* Notifications */}
+      <AnimatePresence>
+        {notification && (
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className={cn(
+              "fixed bottom-24 left-4 right-4 z-50 p-4 rounded-2xl shadow-2xl border flex items-center gap-3",
+              notification.type === 'success' ? "bg-emerald-950/90 border-emerald-500/30 text-emerald-400" :
+              notification.type === 'error' ? "bg-red-950/90 border-red-500/30 text-red-400" :
+              "bg-slate-900/90 border-slate-700 text-slate-300"
+            )}
+          >
+            {notification.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> :
+             notification.type === 'error' ? <AlertCircle className="w-5 h-5" /> :
+             <Info className="w-5 h-5" />}
+            <p className="text-sm font-medium">{notification.message}</p>
+          </motion.div>
+        )}
+
+        {confirmModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl"
+            >
+              <h3 className="text-lg font-bold text-white mb-2">Confirm Action</h3>
+              <p className="text-slate-400 text-sm mb-6 leading-relaxed">
+                {confirmModal.message}
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setConfirmModal(null)}
+                  className="flex-1 px-4 py-3 bg-slate-800 text-slate-300 rounded-xl font-bold hover:bg-slate-700 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    confirmModal.onConfirm();
+                    setConfirmModal(null);
+                  }}
+                  className="flex-1 px-4 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20"
+                >
+                  Confirm
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </ErrorBoundary>
   );
 }
@@ -1743,7 +1905,11 @@ const MemberCard: React.FC<{
   );
 }
 
-const AddPurchaseForm: React.FC<{ members: Member[], onAdd: (desc: string, amt: number, mid: string) => void | Promise<void> }> = ({ members, onAdd }) => {
+const AddPurchaseForm: React.FC<{ 
+  members: Member[], 
+  onAdd: (desc: string, amt: number, mid: string) => void | Promise<void>,
+  setNotification: (notif: { message: string, type: 'success' | 'error' | 'info' } | null) => void
+}> = ({ members, onAdd, setNotification }) => {
   const [desc, setDesc] = useState('');
   const [amt, setAmt] = useState('');
   const [mid, setMid] = useState('');
@@ -1758,7 +1924,7 @@ const AddPurchaseForm: React.FC<{ members: Member[], onAdd: (desc: string, amt: 
         setShowMiniCalc(false);
         setMiniCalcInput('');
       } catch {
-        alert('Invalid calculation');
+        setNotification({ message: 'Invalid calculation', type: 'error' });
       }
     } else if (val === 'C') {
       setMiniCalcInput('');
