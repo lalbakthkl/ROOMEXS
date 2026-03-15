@@ -416,8 +416,10 @@ export default function App() {
     }
   };
 
-  const shareCleaningBadge = (memberName: string) => {
-    const message = `✨ *CLEANING BADGE* ✨\n\n🏆 Congratulations to *${memberName}*!\n🧹 Cleaning task completed successfully.\n🏠 Keeping our home clean and fresh!\n\n📅 Date: ${format(new Date(), 'MMMM dd, yyyy')}\n\n#CleaningDuty #HomeCare`;
+  const shareCleaningBadge = (memberName: string, date?: string) => {
+    const displayDate = date ? format(new Date(date), 'MMMM dd, yyyy') : format(new Date(), 'MMMM dd, yyyy');
+    const badgeUrl = "https://img.icons8.com/color/512/cleaning-service.png";
+    const message = `✨ *CLEANING BADGE* ✨\n\n🏆 Congratulations to *${memberName}*!\n🧹 Cleaning task completed successfully.\n🏠 Keeping our home clean and fresh!\n\n📅 Date: ${displayDate}\n\nView Badge: ${badgeUrl}\n\n#CleaningDuty #HomeCare #CleanHome`;
     const encodedMessage = encodeURIComponent(message);
     window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
   };
@@ -1432,12 +1434,12 @@ export default function App() {
                     <div className="space-y-6">
                       <div className="bg-slate-900 p-8 rounded-4xl border border-slate-800 shadow-xl flex flex-col h-full">
                         <div className="flex items-center justify-between mb-8">
-                          <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em]">Last 2 Rotations</h3>
+                          <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em]">Last 10 Weeks</h3>
                           <Clock className="w-4 h-4 text-slate-600" />
                         </div>
-                        <div className="space-y-4 flex-1">
-                          {cleaningHistory.slice(0, 2).map((h) => (
-                            <div key={h.id} className="p-5 bg-slate-800/50 rounded-3xl border border-slate-800 flex items-center justify-between group">
+                        <div className="space-y-4 flex-1 max-h-[600px] overflow-y-auto pr-2 scrollbar-hide hover:scrollbar-default">
+                          {cleaningHistory.slice(0, 10).map((h) => (
+                            <div key={h.id} className="p-5 bg-slate-800/50 rounded-3xl border border-slate-800 flex items-center justify-between group hover:border-emerald-500/30 transition-all">
                               <div className="flex items-center gap-4">
                                 <div className={cn(
                                   "w-12 h-12 rounded-2xl flex items-center justify-center",
@@ -1452,12 +1454,23 @@ export default function App() {
                                   </p>
                                 </div>
                               </div>
-                              <span className={cn(
-                                "text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full border",
-                                h.status === 'completed' ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-amber-500/10 text-amber-500 border-amber-500/20"
-                              )}>
-                                {h.status}
-                              </span>
+                              <div className="flex items-center gap-3">
+                                {h.status === 'completed' && (
+                                  <button 
+                                    onClick={() => shareCleaningBadge(h.memberName, h.date)}
+                                    className="p-2 bg-emerald-500/10 text-emerald-500 rounded-xl hover:bg-emerald-500/20 transition-all"
+                                    title="Share Badge"
+                                  >
+                                    <Share2 className="w-4 h-4" />
+                                  </button>
+                                )}
+                                <span className={cn(
+                                  "text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full border hidden sm:block",
+                                  h.status === 'completed' ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                                )}>
+                                  {h.status}
+                                </span>
+                              </div>
                             </div>
                           ))}
                           {cleaningHistory.length === 0 && (
