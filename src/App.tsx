@@ -210,16 +210,28 @@ export default function App() {
   
   // PWA Install Logic
   useEffect(() => {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone;
+
+    // Auto-show for iOS if not installed (with slight delay)
+    let iosTimer: any;
+    if (isIOS && !isStandalone) {
+      iosTimer = setTimeout(() => setShowInstallPrompt(true), 3000);
+    }
+
     const handler = (e: any) => {
       e.preventDefault();
       setDeferredPrompt(e);
       // Only show if not already installed
-      if (!window.matchMedia('(display-mode: standalone)').matches) {
+      if (!isStandalone) {
         setShowInstallPrompt(true);
       }
     };
     window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler);
+      if (iosTimer) clearTimeout(iosTimer);
+    };
   }, []);
 
   const handleInstall = async () => {
