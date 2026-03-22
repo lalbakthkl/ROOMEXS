@@ -1,25 +1,36 @@
 {
-  "name": "ROOMEX",
+  "name": "ROOMEX Expense Manager",
   "short_name": "ROOMEX",
-  "description": "Mess and room expense sharing and management app",
-  "id": "/",
-  "scope": "/",
+  "description": "Smart mess and room expense sharing and management application for roommates.",
+  "id": "com.roomex.app",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
+  "orientation": "portrait",
+  "background_color": "#000000",
   "theme_color": "#4f46e5",
+  "categories": ["finance", "utilities"],
   "icons": [
     {
       "src": "https://picsum.photos/192",
       "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://picsum.photos/192",
+      "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "maskable"
+    },
+    {
+      "src": "https://picsum.photos/512",
+      "sizes": "512x512",
+      "type": "image/png"
     },
     {
       "src": "https://picsum.photos/512",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "maskable"
     }
   ]
 }

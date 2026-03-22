@@ -219,6 +219,7 @@ export default function App() {
   useEffect(() => {
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone;
+    console.log('PWA: Standalone mode detected:', isStandalone);
 
     // Auto-show for iOS if not installed (with slight delay)
     let iosTimer: any;
@@ -229,15 +230,24 @@ export default function App() {
     }
 
     const handler = (e: any) => {
-      console.log('PWA: beforeinstallprompt event fired');
+      console.log('PWA: beforeinstallprompt event fired', e);
       e.preventDefault();
       setDeferredPrompt(e);
       // Only show if not already installed
       if (!isStandalone) {
+        console.log('PWA: Showing install prompt UI');
         setShowInstallPrompt(true);
+      } else {
+        console.log('PWA: App is already in standalone mode');
       }
     };
     window.addEventListener('beforeinstallprompt', handler);
+    
+    window.addEventListener('appinstalled', () => {
+      console.log('PWA: App was installed');
+      setShowInstallPrompt(false);
+      setDeferredPrompt(null);
+    });
     return () => {
       window.removeEventListener('beforeinstallprompt', handler);
       if (iosTimer) clearTimeout(iosTimer);
