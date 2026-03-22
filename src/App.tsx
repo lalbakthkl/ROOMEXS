@@ -222,6 +222,18 @@ export default function App() {
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone;
     console.log('PWA: Standalone mode detected:', isStandalone);
     
+    const checkPrompt = () => {
+      if ((window as any).deferredPrompt) {
+        console.log('PWA: Found deferredPrompt from window');
+        setDeferredPrompt((window as any).deferredPrompt);
+        setPwaStatus('Ready to Install');
+        if (!isStandalone) setShowInstallPrompt(true);
+      }
+    };
+
+    checkPrompt();
+    window.addEventListener('pwa-prompt-available', checkPrompt);
+
     // Check SW status
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.ready.then(registration => {
@@ -256,6 +268,7 @@ export default function App() {
       console.log('PWA: beforeinstallprompt event fired', e);
       e.preventDefault();
       setDeferredPrompt(e);
+      (window as any).deferredPrompt = e;
       setPwaStatus('Ready to Install');
       // Only show if not already installed
       if (!isStandalone) {
@@ -269,10 +282,12 @@ export default function App() {
       console.log('PWA: App was installed');
       setShowInstallPrompt(false);
       setDeferredPrompt(null);
+      (window as any).deferredPrompt = null;
       setPwaStatus('Installed');
     });
     return () => {
       window.removeEventListener('beforeinstallprompt', handler);
+      window.removeEventListener('pwa-prompt-available', checkPrompt);
       if (iosTimer) clearTimeout(iosTimer);
     };
   }, []);
@@ -2289,7 +2304,7 @@ const LoginScreen: React.FC<LoginProps> = ({ deferredPrompt, onInstall, pwaStatu
             Google
           </button>
 
-          {deferredPrompt && (
+          {deferredPrompt ? (
             <button
               onClick={onInstall}
               className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold hover:bg-indigo-700 transition-all active:scale-[0.98] flex items-center justify-center gap-3 shadow-xl shadow-indigo-900/20"
@@ -2297,6 +2312,18 @@ const LoginScreen: React.FC<LoginProps> = ({ deferredPrompt, onInstall, pwaStatu
               <Download className="w-5 h-5" />
               Install App
             </button>
+          ) : (
+            <div className="p-4 bg-slate-800/50 rounded-2xl border border-slate-700">
+              <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest mb-2 text-center">How to Install</p>
+              <div className="flex items-center gap-3 text-xs text-slate-300">
+                <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-bold">1</div>
+                <p>Tap the <strong>three dots</strong> in Chrome</p>
+              </div>
+              <div className="flex items-center gap-3 text-xs text-slate-300 mt-2">
+                <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-bold">2</div>
+                <p>Select <strong>"Add to Home screen"</strong></p>
+              </div>
+            </div>
           )}
         </div>
 
