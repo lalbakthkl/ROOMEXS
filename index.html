@@ -11,20 +11,23 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="ROOMEX" />
-    <link rel="apple-touch-icon" href="/icon.png" />
+    <link rel="apple-touch-icon" href="https://picsum.photos/180" />
   </head>
   <body>
     <div id="root"></div>
     <script>
       (function() {
+        console.log('PWA: Script initialized');
         // Global error handlers to help debug preview issues
         window.addEventListener('error', function(event) {
+          console.error('PWA: Runtime Error:', event.message);
           const errorDisplay = document.createElement('div');
           errorDisplay.style.cssText = 'position:fixed;top:0;left:0;width:100%;background:red;color:white;padding:20px;z-index:99999;font-family:monospace;white-space:pre-wrap;font-size:12px;';
           errorDisplay.textContent = 'Runtime Error: ' + event.message + '\nAt: ' + event.filename + ':' + event.lineno + ':' + event.colno;
           document.body.appendChild(errorDisplay);
         });
         window.addEventListener('unhandledrejection', function(event) {
+          console.error('PWA: Unhandled Promise Rejection:', event.reason);
           const errorDisplay = document.createElement('div');
           errorDisplay.style.cssText = 'position:fixed;top:0;left:0;width:100%;background:orange;color:white;padding:20px;z-index:99999;font-family:monospace;white-space:pre-wrap;font-size:12px;';
           errorDisplay.textContent = 'Unhandled Promise Rejection: ' + event.reason;
@@ -59,10 +62,13 @@
         // Register Service Worker
         if ('serviceWorker' in navigator) {
           window.addEventListener('load', () => {
+            console.log('PWA: Attempting to register SW...');
             navigator.serviceWorker.register('/sw.js')
-              .then(reg => console.log('SW registered:', reg))
-              .catch(err => console.log('SW registration failed:', err));
+              .then(reg => console.log('PWA: SW registered successfully:', reg))
+              .catch(err => console.error('PWA: SW registration failed:', err));
           });
+        } else {
+          console.warn('PWA: Service Worker not supported in this browser');
         }
       })();
     </script>
