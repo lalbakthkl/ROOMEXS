@@ -222,6 +222,7 @@ export default function App() {
     }
 
     const handler = (e: any) => {
+      console.log('PWA: beforeinstallprompt event fired');
       e.preventDefault();
       setDeferredPrompt(e);
       // Only show if not already installed
