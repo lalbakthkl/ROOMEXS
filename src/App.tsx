@@ -212,6 +212,7 @@ export default function App() {
   const [showCleaningSuccess, setShowCleaningSuccess] = useState<{name: string} | null>(null);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+  const [pwaStatus, setPwaStatus] = useState<string>('Initializing...');
   const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' | 'info' } | null>(null);
   const [confirmModal, setConfirmModal] = useState<{ message: string, onConfirm: () => void } | null>(null);
   
@@ -220,12 +221,34 @@ export default function App() {
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone;
     console.log('PWA: Standalone mode detected:', isStandalone);
+    
+    // Check SW status
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready.then(registration => {
+        console.log('PWA: Service Worker Ready:', registration);
+        setPwaStatus(prev => {
+          if (isStandalone) return 'Installed (Standalone)';
+          if (prev === 'Ready to Install') return prev;
+          return 'SW Active - Waiting for Prompt';
+        });
+      });
+      
+      if (navigator.serviceWorker.controller) {
+        console.log('PWA: Page is controlled by SW');
+      } else {
+        console.log('PWA: Page is NOT controlled by SW yet - Reload recommended');
+        setPwaStatus('SW Registering...');
+      }
+    }
+
+    setPwaStatus(isStandalone ? 'Installed (Standalone)' : 'Not Installed');
 
     // Auto-show for iOS if not installed (with slight delay)
     let iosTimer: any;
     if (isIOS && !isStandalone) {
       iosTimer = setTimeout(() => {
         setShowInstallPrompt(true);
+        setPwaStatus('iOS Ready');
       }, 3000);
     }
 
@@ -233,12 +256,11 @@ export default function App() {
       console.log('PWA: beforeinstallprompt event fired', e);
       e.preventDefault();
       setDeferredPrompt(e);
+      setPwaStatus('Ready to Install');
       // Only show if not already installed
       if (!isStandalone) {
         console.log('PWA: Showing install prompt UI');
         setShowInstallPrompt(true);
-      } else {
-        console.log('PWA: App is already in standalone mode');
       }
     };
     window.addEventListener('beforeinstallprompt', handler);
@@ -247,6 +269,7 @@ export default function App() {
       console.log('PWA: App was installed');
       setShowInstallPrompt(false);
       setDeferredPrompt(null);
+      setPwaStatus('Installed');
     });
     return () => {
       window.removeEventListener('beforeinstallprompt', handler);
@@ -905,7 +928,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       {!user ? (
-        <LoginScreen />
+        <LoginScreen deferredPrompt={deferredPrompt} onInstall={handleInstall} pwaStatus={pwaStatus} />
       ) : !isApproved ? (
         <VerificationScreen email={user.email || ''} pendingReg={pendingReg} />
       ) : (
@@ -2123,7 +2146,13 @@ const VerificationScreen: React.FC<{ email: string, pendingReg: any }> = ({ emai
   );
 };
 
-const LoginScreen: React.FC = () => {
+interface LoginProps {
+  deferredPrompt?: any;
+  onInstall?: () => void;
+  pwaStatus?: string;
+}
+
+const LoginScreen: React.FC<LoginProps> = ({ deferredPrompt, onInstall, pwaStatus }) => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -2258,6 +2287,39 @@ const LoginScreen: React.FC = () => {
               <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.66l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
             </svg>
             Google
+          </button>
+
+          {deferredPrompt && (
+            <button
+              onClick={onInstall}
+              className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold hover:bg-indigo-700 transition-all active:scale-[0.98] flex items-center justify-center gap-3 shadow-xl shadow-indigo-900/20"
+            >
+              <Download className="w-5 h-5" />
+              Install App
+            </button>
+          )}
+        </div>
+
+        <div className="mt-6 text-center space-y-2">
+          <p className="text-[10px] text-slate-600 font-mono uppercase tracking-widest">
+            PWA Status: {pwaStatus}
+          </p>
+          <button 
+            onClick={() => {
+              if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(registrations => {
+                  for (let registration of registrations) {
+                    registration.unregister();
+                  }
+                  window.location.reload();
+                });
+              } else {
+                window.location.reload();
+              }
+            }}
+            className="text-[9px] text-slate-700 hover:text-slate-500 underline uppercase tracking-tighter"
+          >
+            Clear Cache & Reload
           </button>
         </div>
 
