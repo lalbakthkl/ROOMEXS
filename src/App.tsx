@@ -213,25 +213,19 @@ export default function App() {
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone;
 
-    console.log('PWA: isIOS:', isIOS, 'isStandalone:', isStandalone);
-
     // Auto-show for iOS if not installed (with slight delay)
     let iosTimer: any;
     if (isIOS && !isStandalone) {
-      console.log('PWA: iOS detected, setting timer for install prompt');
       iosTimer = setTimeout(() => {
-        console.log('PWA: Showing iOS install prompt');
         setShowInstallPrompt(true);
       }, 3000);
     }
 
     const handler = (e: any) => {
-      console.log('PWA: beforeinstallprompt event fired');
       e.preventDefault();
       setDeferredPrompt(e);
       // Only show if not already installed
       if (!isStandalone) {
-        console.log('PWA: Showing Android/Chrome install prompt');
         setShowInstallPrompt(true);
       }
     };
