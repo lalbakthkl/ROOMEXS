@@ -189,6 +189,13 @@ const ErrorBoundary = ({ children }: { children: React.ReactNode }) => {
 };
 
 export default function App() {
+  useEffect(() => {
+    console.log('App component mounted');
+    if ((window as any).hideAppLoading) {
+      (window as any).hideAppLoading();
+    }
+  }, []);
+  
   const [user, setUser] = useState<User | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [members, setMembers] = useState<Member[]>([]);
