@@ -934,8 +934,11 @@ export default function App() {
   if (!isAuthReady) {
     return (
       <div className="min-h-screen bg-black flex flex-col items-center justify-center gap-4">
-        <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
-        <p className="text-slate-500 text-xs font-medium animate-pulse">Initializing Secure Session...</p>
+        <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin mb-2" />
+        <div className="text-center">
+          <p className="text-slate-400 text-sm font-bold tracking-widest uppercase mb-1">Loading Roomex...</p>
+          <p className="text-slate-600 text-[10px] font-bold tracking-[0.2em] uppercase">Developed by Sakeerputhan</p>
+        </div>
       </div>
     );
   }
@@ -2156,6 +2159,10 @@ const VerificationScreen: React.FC<{ email: string, pendingReg: any }> = ({ emai
             Sign Out
           </button>
         </div>
+
+        <div className="mt-8 pt-8 border-t border-slate-800/50 text-center">
+          <p className="text-[9px] text-slate-600 font-bold uppercase tracking-[0.2em]">Developed by Sakeerputhan</p>
+        </div>
       </motion.div>
     </div>
   );
@@ -2379,6 +2386,10 @@ const LoginScreen: React.FC<LoginProps> = ({ deferredPrompt, onInstall, pwaStatu
             {isSignUp ? 'Sign In' : 'Create one'}
           </button>
         </p>
+
+        <div className="mt-8 pt-8 border-t border-slate-800/50 text-center">
+          <p className="text-[9px] text-slate-600 font-bold uppercase tracking-[0.2em]">Developed by Sakeerputhan</p>
+        </div>
       </motion.div>
     </div>
   );
