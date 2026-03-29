@@ -2335,6 +2335,26 @@ const LoginScreen: React.FC<LoginProps> = ({ deferredPrompt, onInstall, pwaStatu
             onClick={() => {
               if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.getRegistrations().then(registrations => {
+                  console.log('PWA Debug:', {
+                    swCount: registrations.length,
+                    status: pwaStatus,
+                    standalone: window.matchMedia('(display-mode: standalone)').matches,
+                    deferredPrompt: !!deferredPrompt
+                  });
+                  alert(`SW Count: ${registrations.length}\nStatus: ${pwaStatus}\nStandalone: ${window.matchMedia('(display-mode: standalone)').matches}\nPrompt: ${!!deferredPrompt}`);
+                });
+              } else {
+                alert('Service Workers not supported');
+              }
+            }}
+            className="text-[9px] text-slate-700 hover:text-slate-500 underline uppercase tracking-tighter mr-4"
+          >
+            Check PWA Status
+          </button>
+          <button 
+            onClick={() => {
+              if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(registrations => {
                   for (let registration of registrations) {
                     registration.unregister();
                   }

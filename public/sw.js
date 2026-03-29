@@ -1,8 +1,18 @@
-const CACHE_NAME = 'roomex-v3';
+const CACHE_NAME = 'roomex-v4';
+const ASSETS_TO_CACHE = [
+  '/',
+  '/index.html',
+  '/manifest.json'
+];
 
 self.addEventListener('install', (event) => {
   console.log('SW: Install event');
   self.skipWaiting();
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(ASSETS_TO_CACHE);
+    })
+  );
 });
 
 self.addEventListener('activate', (event) => {
@@ -10,19 +20,22 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
-        keys.map((key) => caches.delete(key))
+        keys.map((key) => {
+          if (key !== CACHE_NAME) return caches.delete(key);
+        })
       );
     }).then(() => {
-      console.log('SW: Caches cleared');
       return clients.claim();
     })
   );
 });
 
 self.addEventListener('fetch', (event) => {
-  // PWA requirement: must have a fetch handler
-  // console.log('SW: Fetching', event.request.url);
-  event.respondWith(fetch(event.request));
+  event.respondWith(
+    caches.match(event.request).then((response) => {
+      return response || fetch(event.request);
+    })
+  );
 });
 
 self.addEventListener('message', (event) => {
