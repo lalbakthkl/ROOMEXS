@@ -2,7 +2,8 @@ const CACHE_NAME = 'roomex-v4';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
-  '/manifest.json'
+  '/manifest.json',
+  '/icon-512.png'
 ];
 
 self.addEventListener('install', (event) => {
