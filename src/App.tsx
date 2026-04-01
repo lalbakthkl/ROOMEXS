@@ -204,6 +204,7 @@ export default function App() {
   const [totalRoomRent, setTotalRoomRent] = useState<number>(0);
   const [cleaningQueue, setCleaningQueue] = useState<CleaningQueue | null>(null);
   const [cleaningHistory, setCleaningHistory] = useState<CleaningHistory[]>([]);
+  const [lastClosedMonth, setLastClosedMonth] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'members' | 'purchases' | 'cleaning' | 'history' | 'calculator' | 'approvals'>('members');
   const [isAdmin, setIsAdmin] = useState(false);
   const [isApproved, setIsApproved] = useState(false);
@@ -398,7 +399,9 @@ export default function App() {
 
     const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (snapshot) => {
       if (snapshot.exists()) {
-        setTotalRoomRent(snapshot.data().totalRoomRent || 0);
+        const data = snapshot.data();
+        setTotalRoomRent(data.totalRoomRent || 0);
+        setLastClosedMonth(data.lastClosedMonth || null);
       }
     }, (err) => handleFirestoreError(err, OperationType.GET, 'settings/global'));
 
@@ -761,6 +764,47 @@ export default function App() {
     }
   };
 
+  const closeMonth = async () => {
+    if (!user || !isAdmin) return;
+    
+    setConfirmModal({
+      message: 'Are you sure you want to CLOSE the current month? This will save the summary, DELETE all purchases, and RESET all member days to zero for the new month.',
+      onConfirm: async () => {
+        try {
+          // 1. Save Summary
+          const month = format(new Date(), 'MMMM yyyy');
+          await addDoc(collection(db, 'summaries'), {
+            month,
+            totalRoomRent,
+            totalPurchase: calculations.totalPurchase,
+            totalDays: calculations.totalDays,
+            perDayRate: calculations.perDayRate,
+            memberDetails: JSON.stringify(calculations.memberDetails),
+            uid: user.uid,
+            createdAt: new Date().toISOString()
+          });
+
+          // 2. Delete all purchases
+          for (const p of purchases) {
+            await deleteDoc(doc(db, 'purchases', p.id));
+          }
+
+          // 3. Reset member days
+          for (const m of members) {
+            await updateDoc(doc(db, 'members', m.id), { totalDays: 0 });
+          }
+
+          // 4. Update last closed month
+          await setDoc(doc(db, 'settings', 'global'), { lastClosedMonth: month }, { merge: true });
+
+          setNotification({ message: 'Month closed successfully! Starting fresh for the new month.', type: 'success' });
+        } catch (err) {
+          handleFirestoreError(err, OperationType.WRITE, 'closeMonth');
+        }
+      }
+    });
+  };
+
   // Calculator Logic
   const handleCalc = (val: string) => {
     if (val === '=') {
@@ -782,6 +826,19 @@ export default function App() {
       setCalcInput(prev => prev + val);
     }
   };
+
+  // New Month Detection
+  useEffect(() => {
+    if (isAuthReady && isAdmin && lastClosedMonth) {
+      const currentMonthStr = format(new Date(), 'MMMM yyyy');
+      if (lastClosedMonth !== currentMonthStr && (purchases.length > 0 || members.some(m => m.totalDays > 0))) {
+        setNotification({ 
+          message: `It's ${currentMonthStr}! Don't forget to close the previous month (${lastClosedMonth}) in the History tab to start fresh.`, 
+          type: 'info' 
+        });
+      }
+    }
+  }, [isAuthReady, isAdmin, lastClosedMonth, purchases.length, members]);
 
   // PDF Generation Logic
   const generatePDF = () => {
@@ -1294,13 +1351,24 @@ export default function App() {
                 <div className="flex justify-between items-center px-2">
                   <h2 className="text-xl font-display font-black text-white tracking-tight">Saved Summaries</h2>
                   {isAdmin && (
-                    <button 
-                      onClick={saveSummary}
-                      className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-2xl font-bold hover:bg-indigo-700 transition-all active:scale-95 shadow-lg shadow-indigo-900/20"
-                    >
-                      <Save className="w-4 h-4" />
-                      Save Current
-                    </button>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={saveSummary}
+                        className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-3 rounded-2xl font-bold hover:bg-indigo-700 transition-all active:scale-95 shadow-lg shadow-indigo-900/20"
+                      >
+                        <Save className="w-4 h-4" />
+                        <span className="hidden sm:inline">Save Current</span>
+                        <span className="sm:hidden">Save</span>
+                      </button>
+                      <button 
+                        onClick={closeMonth}
+                        className="flex items-center gap-2 bg-red-600 text-white px-4 py-3 rounded-2xl font-bold hover:bg-red-700 transition-all active:scale-95 shadow-lg shadow-red-900/20"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                        <span className="hidden sm:inline">Close Month</span>
+                        <span className="sm:hidden">Close</span>
+                      </button>
+                    </div>
                   )}
                 </div>
                 <div className="grid gap-6">

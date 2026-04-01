@@ -116,6 +116,10 @@
     "/cleaning_history/{historyId}": {
       "schema": "CleaningHistory",
       "description": "Collection of cleaning history records"
+    },
+    "/settings/{settingId}": {
+      "schema": "object",
+      "description": "Global application settings"
     }
   }
 }
