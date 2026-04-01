@@ -768,7 +768,7 @@ export default function App() {
     if (!user || !isAdmin) return;
     
     setConfirmModal({
-      message: 'Are you sure you want to CLOSE the current month? This will save the summary, DELETE all purchases, and RESET all member days to zero for the new month.',
+      message: 'Are you sure you want to CLOSE the current month? This will save the summary and DELETE all purchases. Member days and cleaning schedule will stay the same.',
       onConfirm: async () => {
         try {
           // 1. Save Summary
@@ -789,12 +789,7 @@ export default function App() {
             await deleteDoc(doc(db, 'purchases', p.id));
           }
 
-          // 3. Reset member days
-          for (const m of members) {
-            await updateDoc(doc(db, 'members', m.id), { totalDays: 0 });
-          }
-
-          // 4. Update last closed month
+          // 3. Update last closed month
           await setDoc(doc(db, 'settings', 'global'), { lastClosedMonth: month }, { merge: true });
 
           setNotification({ message: 'Month closed successfully! Starting fresh for the new month.', type: 'success' });
