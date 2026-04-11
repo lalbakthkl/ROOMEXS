@@ -115,6 +115,7 @@ interface Purchase {
   date: string;
   memberId: string;
   uid: string;
+  billPhoto?: string;
 }
 
 interface Summary {
@@ -710,7 +711,7 @@ export default function App() {
     }
   };
 
-  const addPurchase = async (description: string, amount: number, memberId: string) => {
+  const addPurchase = async (description: string, amount: number, memberId: string, billPhoto?: string) => {
     if (!user) return;
     try {
       await addDoc(collection(db, 'purchases'), {
@@ -718,7 +719,8 @@ export default function App() {
         amount,
         date: new Date().toISOString(),
         memberId,
-        uid: user.uid
+        uid: user.uid,
+        billPhoto: billPhoto || null
       });
       setNotification({ message: 'Purchase added successfully!', type: 'success' });
     } catch (err) {
@@ -1270,11 +1272,21 @@ export default function App() {
                       <div className="divide-y divide-slate-800/50">
                         {group.purchases.map(p => (
                           <div key={p.id} className="px-6 sm:px-8 py-4 sm:py-5 flex items-center justify-between group hover:bg-slate-800/20 transition-colors">
-                            <div className="flex-1 min-w-0">
-                              <p className="font-bold text-slate-200 truncate text-sm sm:text-base">{p.description}</p>
-                              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-0.5">
-                                {format(new Date(p.date), 'MMM dd, yyyy • HH:mm')}
-                              </p>
+                            <div className="flex items-center gap-4 flex-1 min-w-0">
+                              {p.billPhoto && (
+                                <div 
+                                  className="w-10 h-10 sm:w-12 h-12 rounded-lg overflow-hidden border border-slate-700 flex-shrink-0 cursor-pointer hover:scale-105 transition-transform"
+                                  onClick={() => window.open(p.billPhoto, '_blank')}
+                                >
+                                  <img src={p.billPhoto} alt="Bill" className="w-full h-full object-cover" />
+                                </div>
+                              )}
+                              <div className="min-w-0">
+                                <p className="font-bold text-slate-200 truncate text-sm sm:text-base">{p.description}</p>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-0.5">
+                                  {format(new Date(p.date), 'MMM dd, yyyy • HH:mm')}
+                                </p>
+                              </div>
                             </div>
                             <div className="flex items-center gap-4 sm:gap-6">
                               <span className="font-display font-black text-indigo-400 text-base sm:text-lg">AED {p.amount}</span>
@@ -1863,7 +1875,7 @@ function TabButton({ active, onClick, icon, label, activeClassName }: { active: 
 }
 
 const BillScanner: React.FC<{ 
-  onScan: (data: { description: string, amount: number }) => void,
+  onScan: (data: { description: string, amount: number, imageData: string }) => void,
   onClose: () => void,
   setNotification: (notif: { message: string, type: 'success' | 'error' | 'info' } | null) => void
 }> = ({ onScan, onClose, setNotification }) => {
@@ -1956,7 +1968,7 @@ const BillScanner: React.FC<{
 
       const result = JSON.parse(response.text || '{}');
       if (result.description && result.amount !== undefined) {
-        onScan(result);
+        onScan({ ...result, imageData });
         setNotification({ message: "Bill scanned successfully!", type: 'success' });
       } else {
         throw new Error("Could not extract data");
@@ -2238,12 +2250,13 @@ const MemberCard: React.FC<{
 
 const AddPurchaseForm: React.FC<{ 
   members: Member[], 
-  onAdd: (desc: string, amt: number, mid: string) => void | Promise<void>,
+  onAdd: (desc: string, amt: number, mid: string, photo?: string) => void | Promise<void>,
   setNotification: (notif: { message: string, type: 'success' | 'error' | 'info' } | null) => void
 }> = ({ members, onAdd, setNotification }) => {
   const [desc, setDesc] = useState('');
   const [amt, setAmt] = useState('');
   const [mid, setMid] = useState('');
+  const [photo, setPhoto] = useState<string | null>(null);
   const [showMiniCalc, setShowMiniCalc] = useState(false);
   const [miniCalcInput, setMiniCalcInput] = useState('');
   const [showScanner, setShowScanner] = useState(false);
@@ -2302,6 +2315,7 @@ const AddPurchaseForm: React.FC<{
           onScan={(data) => {
             setDesc(data.description);
             setAmt(data.amount.toString());
+            setPhoto(data.imageData);
             setShowScanner(false);
           }}
           onClose={() => setShowScanner(false)}
@@ -2383,10 +2397,11 @@ const AddPurchaseForm: React.FC<{
           <button 
             onClick={() => {
               if (desc && amt && mid) {
-                onAdd(desc, Number(amt), mid);
+                onAdd(desc, Number(amt), mid, photo || undefined);
                 setDesc('');
                 setAmt('');
                 setMid('');
+                setPhoto(null);
               }
             }}
             className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold hover:bg-indigo-700 transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-indigo-900/20"
@@ -2396,6 +2411,23 @@ const AddPurchaseForm: React.FC<{
           </button>
         </div>
       </div>
+      {photo && (
+        <div className="mt-4 flex items-center gap-4 p-4 bg-slate-800/50 rounded-2xl border border-slate-700 animate-in fade-in slide-in-from-top-2">
+          <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-slate-600">
+            <img src={photo} alt="Bill" className="w-full h-full object-cover" />
+            <button 
+              onClick={() => setPhoto(null)}
+              className="absolute top-0 right-0 bg-red-500 text-white p-1 rounded-bl-lg hover:bg-red-600 transition-colors"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+          <div>
+            <p className="text-xs font-bold text-slate-300 uppercase tracking-widest">Bill Photo Attached</p>
+            <p className="text-[10px] text-slate-500 mt-1">This photo will be saved with the purchase</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
