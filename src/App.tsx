@@ -1950,7 +1950,7 @@ const BillScanner: React.FC<{
             }
           },
           {
-            text: "Extract the total amount and a short description of the main item or store from this bill. Return as JSON with keys 'description' and 'amount' (number). If multiple items, summarize. If amount is not clear, guess or return 0."
+            text: "Extract the total amount and a short description of the main item or store from this bill. Return ONLY a JSON object with keys 'description' (string) and 'amount' (number). If multiple items, summarize the description. Ensure the amount is a raw number without currency symbols. If you cannot find a clear amount, return 0 for amount and 'Unknown Bill' for description."
           }
         ],
         config: {
@@ -1966,12 +1966,18 @@ const BillScanner: React.FC<{
         }
       });
 
+      console.log("AI Scan Response:", response.text);
       const result = JSON.parse(response.text || '{}');
-      if (result.description && result.amount !== undefined) {
-        onScan({ ...result, imageData });
+      
+      if (result && (result.description || result.amount !== undefined)) {
+        onScan({ 
+          description: result.description || "Scanned Bill", 
+          amount: result.amount || 0, 
+          imageData 
+        });
         setNotification({ message: "Bill scanned successfully!", type: 'success' });
       } else {
-        throw new Error("Could not extract data");
+        throw new Error("AI returned invalid data format");
       }
     } catch (err) {
       console.error("Scan error:", err);

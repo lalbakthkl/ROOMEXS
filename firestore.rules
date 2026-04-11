@@ -94,7 +94,8 @@ service cloud.firestore {
       return data.description is string && data.description.size() > 0 && data.description.size() < 200 &&
              data.amount is number && data.amount >= 0 &&
              data.date is string &&
-             data.memberId is string;
+             data.memberId is string &&
+             (!('billPhoto' in data) || (data.billPhoto == null || (data.billPhoto is string && data.billPhoto.size() < 800000)));
     }
 
     function isValidSummary(data) {
