@@ -41,9 +41,12 @@ import {
   Trophy,
   Award,
   Smartphone,
-  DownloadCloud
+  DownloadCloud,
+  Camera,
+  Scan
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { GoogleGenAI, Type } from "@google/genai";
 import { 
   collection, 
   addDoc, 
@@ -77,6 +80,8 @@ import {
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
+
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 // Types
 interface Member {
@@ -1842,6 +1847,137 @@ function TabButton({ active, onClick, icon, label, activeClassName }: { active: 
   );
 }
 
+const BillScanner: React.FC<{ 
+  onScan: (data: { description: string, amount: number }) => void,
+  onClose: () => void,
+  setNotification: (notif: { message: string, type: 'success' | 'error' | 'info' } | null) => void
+}> = ({ onScan, onClose, setNotification }) => {
+  const videoRef = React.useRef<HTMLVideoElement>(null);
+  const [scanning, setScanning] = useState(false);
+
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+    const startCamera = async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: 'environment' } 
+        });
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      } catch (err) {
+        console.error("Camera error:", err);
+        setNotification({ message: "Could not access camera. Please check permissions.", type: 'error' });
+        onClose();
+      }
+    };
+
+    startCamera();
+
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [onClose, setNotification]);
+
+  const captureAndScan = async () => {
+    if (!videoRef.current) return;
+    setScanning(true);
+
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = videoRef.current.videoWidth;
+      canvas.height = videoRef.current.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error("Could not get canvas context");
+      
+      ctx.drawImage(videoRef.current, 0, 0);
+      const base64Image = canvas.toDataURL('image/jpeg').split(',')[1];
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: [
+          {
+            inlineData: {
+              mimeType: "image/jpeg",
+              data: base64Image
+            }
+          },
+          {
+            text: "Extract the total amount and a short description of the main item or store from this bill. Return as JSON with keys 'description' and 'amount' (number). If multiple items, summarize. If amount is not clear, guess or return 0."
+          }
+        ],
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              description: { type: Type.STRING },
+              amount: { type: Type.NUMBER }
+            },
+            required: ["description", "amount"]
+          }
+        }
+      });
+
+      const result = JSON.parse(response.text || '{}');
+      if (result.description && result.amount) {
+        onScan(result);
+        setNotification({ message: "Bill scanned successfully!", type: 'success' });
+      } else {
+        throw new Error("Could not extract data");
+      }
+    } catch (err) {
+      console.error("Scan error:", err);
+      setNotification({ message: "Failed to scan bill. Try again or enter manually.", type: 'error' });
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center p-4">
+      <div className="relative w-full max-w-md aspect-[3/4] bg-slate-900 rounded-3xl overflow-hidden border border-slate-800 shadow-2xl">
+        <video 
+          ref={videoRef} 
+          autoPlay 
+          playsInline 
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 border-2 border-indigo-500/30 pointer-events-none">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 border-2 border-indigo-500 rounded-2xl" />
+        </div>
+        
+        {scanning && (
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center gap-4">
+            <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
+            <p className="text-white font-bold animate-pulse">Analyzing Bill...</p>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-8 flex gap-4 w-full max-w-md">
+        <button 
+          onClick={onClose}
+          className="flex-1 bg-slate-800 text-white py-4 rounded-2xl font-bold hover:bg-slate-700 transition-all"
+        >
+          Cancel
+        </button>
+        <button 
+          onClick={captureAndScan}
+          disabled={scanning}
+          className="flex-[2] bg-indigo-600 text-white py-4 rounded-2xl font-bold hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 shadow-xl shadow-indigo-900/40 disabled:opacity-50"
+        >
+          <Camera className="w-5 h-5" />
+          Capture & Scan
+        </button>
+      </div>
+      <p className="mt-4 text-slate-500 text-xs text-center">Position the bill within the frame for better results</p>
+    </div>
+  );
+};
+
 const AddMemberForm: React.FC<{ onAdd: (name: string, rent: boolean, mess: boolean, days: number) => void | Promise<void> }> = ({ onAdd }) => {
   const [name, setName] = useState('');
   const [rent, setRent] = useState(true);
@@ -2051,6 +2187,7 @@ const AddPurchaseForm: React.FC<{
   const [mid, setMid] = useState('');
   const [showMiniCalc, setShowMiniCalc] = useState(false);
   const [miniCalcInput, setMiniCalcInput] = useState('');
+  const [showScanner, setShowScanner] = useState(false);
 
   const handleMiniCalc = (val: string) => {
     if (val === '=') {
@@ -2080,17 +2217,38 @@ const AddPurchaseForm: React.FC<{
           </div>
           Record Purchase
         </div>
-        <button 
-          onClick={() => setShowMiniCalc(!showMiniCalc)}
-          className={cn(
-            "p-2 rounded-xl transition-all flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest",
-            showMiniCalc ? "bg-indigo-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"
-          )}
-        >
-          <Calculator className="w-3.5 h-3.5" />
-          {showMiniCalc ? 'Close Calc' : 'Use Calc'}
-        </button>
+        <div className="flex gap-2">
+          <button 
+            onClick={() => setShowScanner(true)}
+            className="p-2 rounded-xl bg-slate-800 text-slate-400 hover:bg-slate-700 transition-all flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest"
+          >
+            <Scan className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Scan Bill</span>
+          </button>
+          <button 
+            onClick={() => setShowMiniCalc(!showMiniCalc)}
+            className={cn(
+              "p-2 rounded-xl transition-all flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest",
+              showMiniCalc ? "bg-indigo-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"
+            )}
+          >
+            <Calculator className="w-3.5 h-3.5" />
+            {showMiniCalc ? 'Close' : 'Calc'}
+          </button>
+        </div>
       </h3>
+
+      {showScanner && (
+        <BillScanner 
+          onScan={(data) => {
+            setDesc(data.description);
+            setAmt(data.amount.toString());
+            setShowScanner(false);
+          }}
+          onClose={() => setShowScanner(false)}
+          setNotification={setNotification}
+        />
+      )}
 
       <AnimatePresence>
         {showMiniCalc && (
