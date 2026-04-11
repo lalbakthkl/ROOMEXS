@@ -1899,21 +1899,30 @@ const BillScanner: React.FC<{
   }, [onClose, setNotification]);
 
   const captureAndScan = async () => {
-    if (!videoRef.current) return;
+    if (!videoRef.current || videoRef.current.readyState < 2) {
+      setNotification({ message: "Camera not ready. Please wait.", type: 'info' });
+      return;
+    }
     
     // Flash effect
     setShowFlash(true);
     setTimeout(() => setShowFlash(false), 150);
 
     try {
+      const video = videoRef.current;
       const canvas = document.createElement('canvas');
-      canvas.width = videoRef.current.videoWidth;
-      canvas.height = videoRef.current.videoHeight;
+      
+      // Use actual video dimensions
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error("Could not get canvas context");
       
-      ctx.drawImage(videoRef.current, 0, 0);
-      const imageData = canvas.toDataURL('image/jpeg');
+      // Draw the current frame
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      const imageData = canvas.toDataURL('image/jpeg', 0.8);
       setCapturedImage(imageData);
       setScanning(true);
 
@@ -1946,7 +1955,7 @@ const BillScanner: React.FC<{
       });
 
       const result = JSON.parse(response.text || '{}');
-      if (result.description && result.amount) {
+      if (result.description && result.amount !== undefined) {
         onScan(result);
         setNotification({ message: "Bill scanned successfully!", type: 'success' });
       } else {
@@ -1954,7 +1963,7 @@ const BillScanner: React.FC<{
       }
     } catch (err) {
       console.error("Scan error:", err);
-      setNotification({ message: "Failed to scan bill. Try again or enter manually.", type: 'error' });
+      setNotification({ message: "Failed to scan bill. Please try again.", type: 'error' });
       setCapturedImage(null);
     } finally {
       setScanning(false);
@@ -1969,20 +1978,23 @@ const BillScanner: React.FC<{
             ref={videoRef} 
             autoPlay 
             playsInline 
+            muted
             className="w-full h-full object-cover"
           />
         ) : (
           <img 
             src={capturedImage} 
             alt="Captured bill" 
-            className="w-full h-full object-cover opacity-60"
+            className="w-full h-full object-cover"
           />
         )}
 
-        {/* Long Rectangle Frame */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="w-[70%] h-[80%] border-2 border-indigo-500 rounded-2xl shadow-[0_0_0_100vmax_rgba(0,0,0,0.5)]" />
-        </div>
+        {/* Long Rectangle Frame - Only show when not scanning */}
+        {!scanning && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="w-[75%] h-[85%] border-2 border-indigo-500 rounded-2xl shadow-[0_0_0_100vmax_rgba(0,0,0,0.5)]" />
+          </div>
+        )}
 
         {/* Flash Effect */}
         <AnimatePresence>
