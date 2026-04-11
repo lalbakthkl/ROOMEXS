@@ -84,9 +84,14 @@ function cn(...inputs: ClassValue[]) {
 let aiInstance: GoogleGenAI | null = null;
 const getAI = () => {
   if (!aiInstance) {
+    // In Vite, process.env.GEMINI_API_KEY is replaced during build via vite.config.ts
+    // or available in the preview environment.
     const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      throw new Error("GEMINI_API_KEY is not set in the environment.");
+    
+    if (!apiKey || apiKey === 'undefined' || apiKey === '') {
+      throw new Error(
+        "Gemini API Key is missing. If you are running on Vercel, please add 'GEMINI_API_KEY' to your Environment Variables in the Vercel Dashboard."
+      );
     }
     aiInstance = new GoogleGenAI({ apiKey });
   }
