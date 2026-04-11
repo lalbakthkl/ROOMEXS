@@ -87,13 +87,24 @@ const getAI = () => {
     // Check multiple possible locations for the API key
     // 1. process.env.GEMINI_API_KEY (Defined in vite.config.ts)
     // 2. import.meta.env.VITE_GEMINI_API_KEY (Standard Vite convention)
-    const apiKey = process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
+    let apiKey = process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
     
-    if (!apiKey || apiKey === 'undefined' || apiKey === '') {
+    // Clean up the key (remove quotes, spaces, etc.)
+    if (apiKey) {
+      apiKey = apiKey.trim().replace(/^["']|["']$/g, '');
+    }
+    
+    if (!apiKey || apiKey === 'undefined' || apiKey === '' || apiKey === 'null') {
       throw new Error(
         "Gemini API Key is missing. If you are running on Vercel, please add 'GEMINI_API_KEY' or 'VITE_GEMINI_API_KEY' to your Environment Variables in the Vercel Dashboard. If you are in AI Studio, please ensure the key is set in the environment."
       );
     }
+
+    // Basic validation: Google AI keys usually start with AIza
+    if (!apiKey.startsWith('AIza')) {
+      console.warn("The provided Gemini API key does not start with 'AIza'. This might be an invalid key.");
+    }
+
     aiInstance = new GoogleGenAI({ apiKey });
   }
   return aiInstance;
@@ -238,6 +249,7 @@ export default function App() {
   const [pwaStatus, setPwaStatus] = useState<string>('Initializing...');
   const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' | 'info' } | null>(null);
   const [confirmModal, setConfirmModal] = useState<{ message: string, onConfirm: () => void } | null>(null);
+  const [viewingPhoto, setViewingPhoto] = useState<string | null>(null);
   
   // PWA Install Logic
   useEffect(() => {
@@ -1277,7 +1289,7 @@ export default function App() {
                               {p.billPhoto && (
                                 <div 
                                   className="w-10 h-10 sm:w-12 h-12 rounded-lg overflow-hidden border border-slate-700 flex-shrink-0 cursor-pointer hover:scale-105 transition-transform"
-                                  onClick={() => window.open(p.billPhoto, '_blank')}
+                                  onClick={() => setViewingPhoto(p.billPhoto!)}
                                 >
                                   <img src={p.billPhoto} alt="Bill" className="w-full h-full object-cover" />
                                 </div>
@@ -1840,6 +1852,45 @@ export default function App() {
             </motion.div>
           </div>
         )}
+
+        {viewingPhoto && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative w-full max-w-2xl max-h-[90vh] flex flex-col items-center"
+            >
+              <button 
+                onClick={() => setViewingPhoto(null)}
+                className="absolute -top-12 right-0 w-10 h-10 bg-slate-800 text-white rounded-full flex items-center justify-center hover:bg-slate-700 transition-all"
+              >
+                <X className="w-6 h-6" />
+              </button>
+              <div className="w-full h-full overflow-auto rounded-2xl border border-slate-800 shadow-2xl">
+                <img 
+                  src={viewingPhoto} 
+                  alt="Bill full view" 
+                  className="w-full h-auto object-contain"
+                />
+              </div>
+              <div className="mt-6 flex gap-4">
+                <button 
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = viewingPhoto;
+                    link.download = `bill-${Date.now()}.jpg`;
+                    link.click();
+                  }}
+                  className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20"
+                >
+                  <Download className="w-5 h-5" />
+                  Download
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
       </AnimatePresence>
     </ErrorBoundary>
   );
@@ -2019,8 +2070,16 @@ const BillScanner: React.FC<{
       }
     } catch (err) {
       console.error("Scan error details:", err);
-      const errorMessage = err instanceof Error ? err.message : "Unknown error";
-      setNotification({ message: `Scan failed: ${errorMessage}. Please try again.`, type: 'error' });
+      let errorMessage = err instanceof Error ? err.message : "Unknown error";
+      
+      // Check for common API key errors
+      if (errorMessage.includes("API key not valid") || errorMessage.includes("INVALID_ARGUMENT")) {
+        errorMessage = "The Gemini API Key is invalid. Please check your Vercel Environment Variables and ensure the key is copied correctly without extra spaces or quotes.";
+      } else if (errorMessage.includes("quota") || errorMessage.includes("429")) {
+        errorMessage = "API quota exceeded. Please try again in a few minutes.";
+      }
+      
+      setNotification({ message: `Scan failed: ${errorMessage}`, type: 'error' });
       setCapturedImage(null);
     } finally {
       setScanning(false);
