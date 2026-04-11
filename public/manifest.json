@@ -31,13 +31,13 @@
   ],
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/1011/1011812.png",
+      "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/1011/1011812.png",
+      "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
