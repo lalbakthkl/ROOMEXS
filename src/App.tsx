@@ -1888,16 +1888,33 @@ const BillScanner: React.FC<{
     let stream: MediaStream | null = null;
     const startCamera = async () => {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } 
-        });
+        // More flexible constraints for better compatibility
+        const constraints = {
+          video: { 
+            facingMode: 'environment',
+            width: { ideal: 1280, max: 1920 },
+            height: { ideal: 720, max: 1080 }
+          } 
+        };
+        
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
+          // Ensure video plays
+          videoRef.current.play().catch(e => console.error("Play error:", e));
         }
       } catch (err) {
         console.error("Camera error:", err);
-        setNotification({ message: "Could not access camera. Please check permissions.", type: 'error' });
-        onClose();
+        // Fallback to simpler constraints if ideal fails
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+          }
+        } catch (fallbackErr) {
+          setNotification({ message: "Could not access camera. Please check permissions.", type: 'error' });
+          onClose();
+        }
       }
     };
 
@@ -1924,21 +1941,33 @@ const BillScanner: React.FC<{
       const video = videoRef.current;
       const canvas = document.createElement('canvas');
       
-      // Use actual video dimensions
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      // Use actual video dimensions but cap them for mobile stability
+      let width = video.videoWidth;
+      let height = video.videoHeight;
+      
+      // If image is too large, downscale slightly for faster processing and stability
+      const MAX_DIM = 1280;
+      if (width > MAX_DIM || height > MAX_DIM) {
+        const ratio = Math.min(MAX_DIM / width, MAX_DIM / height);
+        width *= ratio;
+        height *= ratio;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
       
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error("Could not get canvas context");
       
       // Draw the current frame
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      ctx.drawImage(video, 0, 0, width, height);
       
-      const imageData = canvas.toDataURL('image/jpeg', 0.8);
+      const imageData = canvas.toDataURL('image/jpeg', 0.7); // Slightly lower quality for faster upload
       setCapturedImage(imageData);
       setScanning(true);
 
       const base64Image = imageData.split(',')[1];
+      if (!base64Image) throw new Error("Failed to capture image data");
 
       const response = await getAI().models.generateContent({
         model: "gemini-3-flash-preview",
@@ -1966,8 +1995,16 @@ const BillScanner: React.FC<{
         }
       });
 
-      console.log("AI Scan Response:", response.text);
-      const result = JSON.parse(response.text || '{}');
+      const responseText = response.text;
+      console.log("AI Scan Response:", responseText);
+      
+      let result;
+      try {
+        result = JSON.parse(responseText || '{}');
+      } catch (e) {
+        console.error("JSON Parse Error:", e, responseText);
+        throw new Error("Invalid response from AI");
+      }
       
       if (result && (result.description || result.amount !== undefined)) {
         onScan({ 
@@ -1977,11 +2014,12 @@ const BillScanner: React.FC<{
         });
         setNotification({ message: "Bill scanned successfully!", type: 'success' });
       } else {
-        throw new Error("AI returned invalid data format");
+        throw new Error("AI returned empty data");
       }
     } catch (err) {
-      console.error("Scan error:", err);
-      setNotification({ message: "Failed to scan bill. Please try again.", type: 'error' });
+      console.error("Scan error details:", err);
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
+      setNotification({ message: `Scan failed: ${errorMessage}. Please try again.`, type: 'error' });
       setCapturedImage(null);
     } finally {
       setScanning(false);
