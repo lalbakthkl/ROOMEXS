@@ -1869,13 +1869,15 @@ const BillScanner: React.FC<{
 }> = ({ onScan, onClose, setNotification }) => {
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const [scanning, setScanning] = useState(false);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [showFlash, setShowFlash] = useState(false);
 
   useEffect(() => {
     let stream: MediaStream | null = null;
     const startCamera = async () => {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: 'environment' } 
+          video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } 
         });
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
@@ -1898,7 +1900,10 @@ const BillScanner: React.FC<{
 
   const captureAndScan = async () => {
     if (!videoRef.current) return;
-    setScanning(true);
+    
+    // Flash effect
+    setShowFlash(true);
+    setTimeout(() => setShowFlash(false), 150);
 
     try {
       const canvas = document.createElement('canvas');
@@ -1908,7 +1913,11 @@ const BillScanner: React.FC<{
       if (!ctx) throw new Error("Could not get canvas context");
       
       ctx.drawImage(videoRef.current, 0, 0);
-      const base64Image = canvas.toDataURL('image/jpeg').split(',')[1];
+      const imageData = canvas.toDataURL('image/jpeg');
+      setCapturedImage(imageData);
+      setScanning(true);
+
+      const base64Image = imageData.split(',')[1];
 
       const response = await getAI().models.generateContent({
         model: "gemini-3-flash-preview",
@@ -1946,6 +1955,7 @@ const BillScanner: React.FC<{
     } catch (err) {
       console.error("Scan error:", err);
       setNotification({ message: "Failed to scan bill. Try again or enter manually.", type: 'error' });
+      setCapturedImage(null);
     } finally {
       setScanning(false);
     }
@@ -1954,18 +1964,40 @@ const BillScanner: React.FC<{
   return (
     <div className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center p-4">
       <div className="relative w-full max-w-md aspect-[3/4] bg-slate-900 rounded-3xl overflow-hidden border border-slate-800 shadow-2xl">
-        <video 
-          ref={videoRef} 
-          autoPlay 
-          playsInline 
-          className="w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 border-2 border-indigo-500/30 pointer-events-none">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 border-2 border-indigo-500 rounded-2xl" />
+        {!capturedImage ? (
+          <video 
+            ref={videoRef} 
+            autoPlay 
+            playsInline 
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <img 
+            src={capturedImage} 
+            alt="Captured bill" 
+            className="w-full h-full object-cover opacity-60"
+          />
+        )}
+
+        {/* Long Rectangle Frame */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="w-[70%] h-[80%] border-2 border-indigo-500 rounded-2xl shadow-[0_0_0_100vmax_rgba(0,0,0,0.5)]" />
         </div>
+
+        {/* Flash Effect */}
+        <AnimatePresence>
+          {showFlash && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-white z-10"
+            />
+          )}
+        </AnimatePresence>
         
         {scanning && (
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center gap-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm flex flex-col items-center justify-center gap-4 z-20">
             <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
             <p className="text-white font-bold animate-pulse">Analyzing Bill...</p>
           </div>
@@ -1984,11 +2016,11 @@ const BillScanner: React.FC<{
           disabled={scanning}
           className="flex-[2] bg-indigo-600 text-white py-4 rounded-2xl font-bold hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 shadow-xl shadow-indigo-900/40 disabled:opacity-50"
         >
-          <Camera className="w-5 h-5" />
-          Capture & Scan
+          {scanning ? <RotateCcw className="w-5 h-5 animate-spin" /> : <Camera className="w-5 h-5" />}
+          {scanning ? 'Scanning...' : 'Capture & Scan'}
         </button>
       </div>
-      <p className="mt-4 text-slate-500 text-xs text-center">Position the bill within the frame for better results</p>
+      <p className="mt-4 text-slate-500 text-xs text-center">Position the bill within the long frame for better results</p>
     </div>
   );
 };
